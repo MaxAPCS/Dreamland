@@ -34,7 +34,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
       - name: Setup Rust
-        run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown
+        run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli
       - name: Build Project
         run: cargo build --verbose --release --target wasm32-unknown-unknown
       - name: Bind Project
