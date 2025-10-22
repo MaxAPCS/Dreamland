@@ -31,8 +31,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.1
       - name: Setup Rust
-        run: rustup update stable && rustup default stable
+        run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown
       - name: Build Project
         run: cargo build --verbose --release --target wasm32-unknown-unknown
       - name: Bind Project
