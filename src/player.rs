@@ -7,7 +7,7 @@ use bevy_tnua::prelude::*;
 use bevy_tnua_avian3d::{TnuaAvian3dPlugin, TnuaAvian3dSensorShape};
 use std::f32::consts::FRAC_PI_2;
 
-pub struct PlayerPlugin;
+pub(crate) struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
@@ -27,7 +27,7 @@ impl Plugin for PlayerPlugin {
 }
 
 #[derive(Component)]
-struct Player;
+pub(crate) struct Player;
 
 #[derive(Resource)]
 struct PastMouseLocation {
@@ -73,7 +73,6 @@ fn initialize(mut commands: Commands) {
 
     commands.insert_resource(PastMouseLocation { location: None });
 
-    commands.spawn(Camera3d::default());
     commands.spawn((
         Player,
         Transform::from_xyz(0.0, 2.0, 0.0),
