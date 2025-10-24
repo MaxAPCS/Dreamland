@@ -149,7 +149,7 @@ fn update_controls(
     // stops holding the jump button, simply stop feeding the action.
     if keyboard.pressed(KeyCode::Space) {
         controller.action(TnuaBuiltinJump {
-            height: 4.0,
+            height: 2.0,
             ..Default::default()
         });
     }

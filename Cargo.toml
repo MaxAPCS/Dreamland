@@ -2,13 +2,14 @@
 name = "portfolio"
 version = "0.1.0"
 edition = "2024"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 avian3d = "0.4.0"
 bevy = { version = "0.17", features = ["webgpu", "bevy_dev_tools"] }
 bevy-tnua = "0.26.0"
 bevy-tnua-avian3d = "0.7.1"
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "*", features = ["wasm_js"] }
 wasm-bindgen = "0.2.104"
 
 # Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
