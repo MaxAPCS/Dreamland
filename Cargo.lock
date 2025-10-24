@@ -3985,7 +3985,6 @@ dependencies = [
  "bevy-tnua",
  "bevy-tnua-avian3d",
  "getrandom",
- "wasm-bindgen",
 ]
 
 [[package]]
