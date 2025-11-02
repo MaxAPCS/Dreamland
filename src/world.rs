@@ -1,10 +1,7 @@
-use std::sync::Mutex;
-
 use avian3d::prelude::RigidBody;
-use bevy::ecs::resource::Resource;
 use bevy::prelude::*;
 
-use crate::compute::{mesh, simplexcpu};
+use crate::compute::{meshcpu, simplexcpu};
 
 pub(crate) struct WorldPlugin;
 
@@ -70,7 +67,7 @@ fn create_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn spawn_chunk(commands: &mut Commands, asset_server: &Res<AssetServer>, bounds: &IRect) -> Entity {
     // Only the smallest chunks get physics.
     if bounds.width() > 128 {
-        let mesh = mesh::generate_mesh(bounds, &|pos| {
+        let mesh = meshcpu::generate_mesh(bounds, &|pos| {
             (simplexcpu::fbm_simplex_2d_seeded(pos, 4, 2., 0.5, 0.) * 4.).exp2()
         });
         commands
@@ -88,7 +85,7 @@ fn spawn_chunk(commands: &mut Commands, asset_server: &Res<AssetServer>, bounds:
             ))
             .id()
     } else {
-        let (mesh, collider) = mesh::generate_mesh_physics(bounds, &|pos| {
+        let (mesh, collider) = meshcpu::generate_mesh_physics(bounds, &|pos| {
             (simplexcpu::fbm_simplex_2d_seeded(pos, 4, 2., 0.5, 0.) * 4.).exp2()
         });
         commands

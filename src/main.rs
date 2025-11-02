@@ -21,6 +21,7 @@ fn main() {
         }))
         .add_plugins(avian3d::PhysicsPlugins::default())
         .add_plugins(player::PlayerPlugin)
+        .add_plugins(compute::simplex::SimplexPlugin)
         .add_plugins(world::WorldPlugin)
         .add_systems(Startup, (setup_world, setup_camera))
         .add_systems(FixedUpdate, animate_light_direction)

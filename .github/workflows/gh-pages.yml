@@ -1,4 +1,4 @@
-# Sample workflow for building and deploying a Jekyll site to GitHub Pages
+# Workflow for building and deploying a site to GitHub Pages
 name: Deploy with GitHub Pages
 
 on:
@@ -34,7 +34,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.1
       - name: Setup Rust
-        run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli
+        run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli --locked
       - name: Build Project
         run: cargo build --verbose --release --target wasm32-unknown-unknown
       - name: Bind Project

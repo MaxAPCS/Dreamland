@@ -1,2 +1,3 @@
 pub mod simplexcpu;
-pub mod mesh;
+pub mod meshcpu;
+pub mod simplex;

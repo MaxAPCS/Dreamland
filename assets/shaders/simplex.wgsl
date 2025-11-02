@@ -1,10 +1,20 @@
-const WORKGROUP_SQRT = 8u;
+const WORKGROUPX = 8u;
+const WORKGROUPY = 1u;
+const WORKGROUPZ = 8u;
+const WORKGROUP_SIZE = WORKGROUPX * WORKGROUPY * WORKGROUPZ;
 
 struct FractalNoiseConfig {
     seed: f32,
     octaves: u32,
     lacunarity: f32,
     gain: f32,
+}
+
+struct FractalNoiseBounds {
+    x: f32,
+    z: f32,
+    xstep: f32,
+    zstep: f32
 }
 
 fn permute_3_(x: vec3<f32>) -> vec3<f32> {
@@ -52,28 +62,32 @@ fn simplex_noise_2d_seeded(v: vec2<f32>, seed: f32) -> f32 {
     return 130. * dot(m, g);
 }
 
-@group(0) @binding(0)
-var<uniform> config: FractalNoiseConfig;
+@group(0) @binding(0) var<uniform> config: FractalNoiseConfig;
 
-@group(0) @binding(1) var<storage, read> positions: array<vec2<f32>, WORKGROUP_SQRT * WORKGROUP_SQRT>;
-@group(0) @binding(2) var<storage, read_write> output: array<f32, WORKGROUP_SQRT * WORKGROUP_SQRT>;
+@group(0) @binding(1) var<uniform> bounds: FractalNoiseBounds;
+
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
 
 /// Fractional brownian motion (fbm) based on seeded 2d simplex noise
-@compute @workgroup_size(WORKGROUP_SQRT,WORKGROUP_SQRT,1)
+@compute @workgroup_size(WORKGROUPX,WORKGROUPY,WORKGROUPZ)
 fn main(
-    @builtin(local_invocation_index) local_invocation_index : u32,
+    @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+    @builtin(num_workgroups) num_workgroups: vec3<u32>
 ) {
-    let pos = positions[local_invocation_index];
+    let pos = vec2(bounds.x + bounds.xstep * f32(global_invocation_id.x), bounds.z + bounds.zstep * f32(global_invocation_id.z));
 
     var sum = 0.;
     var amplitude = 1.;
     var frequency = 1.;
 
     for (var i = 0u; i < config.octaves; i++) {
-        sum += simplex_noise_2d_seeded(pos * frequency, seed) * amplitude;
+        sum += simplex_noise_2d_seeded(pos * frequency, config.seed) * amplitude;
         frequency *= config.lacunarity;
         amplitude *= config.gain;
     }
 
-    output[local_invocation_index] = sum;
+    output[
+        global_invocation_id.x +
+        global_invocation_id.z * num_workgroups.z * WORKGROUPZ
+    ] = sum;
 }
