@@ -42,7 +42,7 @@ jobs:
       - name: Build Project
         run: cargo build --verbose --release --target wasm32-unknown-unknown
       - name: Bind Project
-        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/portfolio.wasm && cp serve/* _site/
+        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/portfolio.wasm && cp serve/* _site/ && cp -r assets/ _site/assets/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
