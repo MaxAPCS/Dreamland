@@ -11,6 +11,7 @@ bevy-tnua = "0.26.0"
 bevy-tnua-avian3d = "0.7.1"
 bytemuck = "1.24.0"
 getrandom = { version = "*", features = ["wasm_js"] }
+tokio = { version = "1.48.0", features = ["sync"] }
 
 # Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
 [profile.release]

@@ -1,14 +1,18 @@
 use avian3d::prelude::RigidBody;
 use bevy::prelude::*;
+use bevy::render::RenderStartup;
 
-use crate::compute::{meshcpu, simplexcpu};
-
+use crate::compute;
+use crate::compute::ComputeInit;
+use crate::cpu;
 pub(crate) struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, create_world);
-            // .add_systems(FixedPreUpdate, generate_chunks);
+        app.add_systems(Startup, create_base);
+        app.sub_app_mut(bevy::render::RenderApp)
+            .add_systems(RenderStartup, create_world.after(ComputeInit));
+        // .add_systems(FixedPreUpdate, generate_chunks);
     }
 }
 
@@ -17,12 +21,15 @@ impl Plugin for WorldPlugin {
 //     chunks: Mutex<Quad<Entity>>,
 // }
 
-fn create_world(mut commands: Commands, asset_server: Res<AssetServer>) {
-    spawn_chunk(&mut commands, &asset_server, &IRect::new(0, 0, 128, 128));
-    spawn_chunk(&mut commands, &asset_server, &IRect::new(-128, 0, 0, 128));
-    spawn_chunk(&mut commands, &asset_server, &IRect::new(-128, -128, 0, 0));
-    spawn_chunk(&mut commands, &asset_server, &IRect::new(0, -128, 128, 0));
-    spawn_chunk(&mut commands, &asset_server, &IRect::new(128, -128, 128 + 256, 128));
+fn create_base(mut commands: Commands, asset_server: Res<AssetServer>) {
+    spawn_chunk(&mut commands, &asset_server, IRect::new(0, 0, 128, 128));
+    spawn_chunk(&mut commands, &asset_server, IRect::new(-128, 0, 0, 128));
+    spawn_chunk(&mut commands, &asset_server, IRect::new(-128, -128, 0, 0));
+    spawn_chunk(&mut commands, &asset_server, IRect::new(0, -128, 128, 0));
+}
+
+fn create_world(mut gcq: ResMut<compute::GlobalComputeQueue>) {
+    gcq.add(IRect::new(128, -128, 128 + 256, 128));
 
     // commands.insert_resource(World {
     //     chunks: Mutex::new(Quad::new(bounds, chunk)),
@@ -64,45 +71,22 @@ fn create_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 //     */
 // }
 
-fn spawn_chunk(commands: &mut Commands, asset_server: &Res<AssetServer>, bounds: &IRect) -> Entity {
-    // Only the smallest chunks get physics.
-    if bounds.width() > 128 {
-        let mesh = meshcpu::generate_mesh(bounds, &|pos| {
-            (simplexcpu::fbm_simplex_2d_seeded(pos, 4, 2., 0.5, 0.) * 4.).exp2()
-        });
-        commands
-            .spawn((
-                Mesh3d(asset_server.add(mesh)),
-                MeshMaterial3d(asset_server.add(StandardMaterial {
-                    base_color: Color::linear_rgb(0., 1., 0.),
-                    ..Default::default()
-                })),
-                Transform::from_translation(Vec3 {
-                    x: bounds.min.x as f32,
-                    y: 0.,
-                    z: bounds.min.y as f32,
-                }),
-            ))
-            .id()
-    } else {
-        let (mesh, collider) = meshcpu::generate_mesh_physics(bounds, &|pos| {
-            (simplexcpu::fbm_simplex_2d_seeded(pos, 4, 2., 0.5, 0.) * 4.).exp2()
-        });
-        commands
-            .spawn((
-                RigidBody::Static,
-                collider,
-                Mesh3d(asset_server.add(mesh)),
-                MeshMaterial3d(asset_server.add(StandardMaterial {
-                    base_color: Color::linear_rgb(0., 1., 0.),
-                    ..Default::default()
-                })),
-                Transform::from_translation(Vec3 {
-                    x: bounds.min.x as f32,
-                    y: 0.,
-                    z: bounds.min.y as f32,
-                }),
-            ))
-            .id()
-    }
+fn spawn_chunk(commands: &mut Commands, asset_server: &Res<AssetServer>, bounds: IRect) {
+    let (mesh, collider) = cpu::generation::generate_mesh_physics(&bounds, &|pos| {
+        (cpu::invocation::fbm_simplex_2d_seeded(pos, 4, 2., 0.5, 0.) * 4.).exp2()
+    });
+    commands.spawn((
+        RigidBody::Static,
+        collider,
+        Mesh3d(asset_server.add(mesh)),
+        MeshMaterial3d(asset_server.add(StandardMaterial {
+            base_color: Color::linear_rgb(0., 1., 0.),
+            ..Default::default()
+        })),
+        Transform::from_translation(Vec3 {
+            x: bounds.min.x as f32,
+            y: 0.,
+            z: bounds.min.y as f32,
+        }),
+    ));
 }
