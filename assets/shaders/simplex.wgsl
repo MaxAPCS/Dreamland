@@ -8,6 +8,7 @@ struct FractalNoiseConfig {
     octaves: u32,
     lacunarity: f32,
     gain: f32,
+    amplitude: f32
 }
 
 struct FractalNoiseBounds {
@@ -77,7 +78,7 @@ fn main(
     let pos = vec2(bounds.x + bounds.xstep * f32(global_invocation_id.x), bounds.z + bounds.zstep * f32(global_invocation_id.z));
 
     var sum = 0.;
-    var amplitude = 1.;
+    var amplitude = config.amplitude;
     var frequency = 1.;
 
     for (var i = 0u; i < config.octaves; i++) {
@@ -87,7 +88,6 @@ fn main(
     }
 
     output[
-        global_invocation_id.x +
-        global_invocation_id.z * num_workgroups.z * WORKGROUPZ
-    ] = sum;
+        global_invocation_id.x + global_invocation_id.z * num_workgroups.z * WORKGROUPZ
+    ] = exp2(sum);
 }

@@ -1,12 +1,10 @@
 use std::{
-    collections::VecDeque,
     iter,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
-use tokio::sync::mpsc;
 
 use bevy::{
     prelude::*,
@@ -16,23 +14,11 @@ use bevy::{
     },
 };
 
-use crate::compute::{CHUNK, COMPUTEBUFFERSIZE, ComputeInvocation, GlobalComputeStore};
+use crate::compute::{
+    ComputeInvocation, GenerationQueue, GlobalComputeStore, InvocationDequeue, SAMPLES,
+};
 
 const WORKGROUP: [u32; 3] = [8, 1, 8];
-
-// Public Interface
-#[derive(Resource)]
-pub struct GlobalComputeQueue(VecDeque<IRect>);
-impl Default for GlobalComputeQueue {
-    fn default() -> Self {
-        Self(VecDeque::new())
-    }
-}
-impl GlobalComputeQueue {
-    pub fn add(&mut self, chunk: IRect) {
-        self.0.push_back(chunk);
-    }
-}
 
 // WGSL Objects
 #[repr(C, packed)]
@@ -42,6 +28,7 @@ struct FractalNoiseConfig {
     octaves: u32,
     lacunarity: f32,
     gain: f32,
+    amplitude: f32,
 }
 
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
@@ -49,6 +36,7 @@ const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     octaves: 4,
     lacunarity: 2.0,
     gain: 0.5,
+    amplitude: 4.,
 };
 
 #[repr(C, packed)]
@@ -65,99 +53,94 @@ impl From<&IRect> for FractalNoiseBounds {
         Self {
             x: chunk.min.x as f32,
             z: chunk.min.y as f32,
-            xstep: chunk.width() as f32 / (CHUNK[0] - 1) as f32,
-            zstep: chunk.height() as f32 / (CHUNK[1] - 1) as f32,
+            xstep: chunk.width() as f32 / (SAMPLES[0] - 1) as f32,
+            zstep: chunk.height() as f32 / (SAMPLES[1] - 1) as f32,
         }
     }
 }
 
 // Bevy Systems
-pub(super) fn create_pipeline(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    pipeline_cache: Res<PipelineCache>,
-    render_device: Res<RenderDevice>,
-) {
-    // Create Pipeline Bind Group Layout
-    let bind_group_layout = render_device.create_bind_group_layout(
-        "Simplex Bind Group Layout",
-        &[
-            BindGroupLayoutEntry {
-                binding: 0,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(
-                        std::mem::size_of::<FractalNoiseConfig>() as _
-                    ),
-                },
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(
-                        std::mem::size_of::<FractalNoiseBounds>() as _
-                    ),
-                },
-            },
-            BindGroupLayoutEntry {
-                binding: 2,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: false },
-                    has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(std::mem::size_of::<
-                        [f32; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
-                    >() as _),
-                },
-            },
-        ],
-    );
+impl FromWorld for GlobalComputeStore {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let asset_server = world.resource::<AssetServer>();
 
-    // Create Pipeline
-    let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: None,
-        layout: vec![bind_group_layout],
-        shader_defs: vec![],
-        shader: asset_server.load("shaders/simplex.wgsl"),
-        entry_point: None,
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
-    });
+        // Create Pipeline Bind Group Layout
+        let bind_group_layout = render_device.create_bind_group_layout(
+            "Simplex Bind Group Layout",
+            &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    count: None,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(
+                            std::mem::size_of::<FractalNoiseConfig>() as _,
+                        ),
+                    },
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    count: None,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(
+                            std::mem::size_of::<FractalNoiseBounds>() as _,
+                        ),
+                    },
+                },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    count: None,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: BufferSize::new(std::mem::size_of::<
+                            [f32; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
+                        >() as _),
+                    },
+                },
+            ],
+        );
 
-    // Create Sender & Receiver
-    let (tx, rx) = mpsc::channel(COMPUTEBUFFERSIZE);
+        // Create Pipeline
+        let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: None,
+            layout: vec![bind_group_layout],
+            shader_defs: vec![],
+            shader: asset_server.load("shaders/simplex.wgsl"),
+            entry_point: None,
+            push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
+        });
 
-    // Create Reusable Storage Buffers
-    let bufsize = std::mem::size_of::<[f32; (CHUNK[0] * CHUNK[1]) as usize]>() as _;
-    commands.insert_resource(GlobalComputeStore {
-        pipeline: pipeline,
-        buffers: Arc::new(std::array::from_fn(|i| ComputeInvocation {
-            chunk: Mutex::new(None),
-            active: AtomicBool::new(false),
-            output: render_device.create_buffer(&BufferDescriptor {
-                label: Some(format!("Fractal Noise Output Buffer {}", i).as_str()),
-                usage: BufferUsages::COPY_SRC | BufferUsages::STORAGE,
-                size: bufsize,
-                mapped_at_creation: false,
-            }),
-            staging: render_device.create_buffer(&BufferDescriptor {
-                label: Some(format!("Fractal Noise Staging Buffer {}", i).as_str()),
-                usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
-                size: bufsize,
-                mapped_at_creation: false,
-            }),
-        })),
-        sender: tx,
-        receiver: Mutex::new(rx),
-    });
+        // Create Reusable Storage Buffers
+        let bufsize = std::mem::size_of::<[f32; (SAMPLES[0] * SAMPLES[1]) as usize]>() as _;
+        Self {
+            pipeline: pipeline,
+            buffers: Arc::new(std::array::from_fn(|i| ComputeInvocation {
+                active: AtomicBool::new(false),
+                output: render_device.create_buffer(&BufferDescriptor {
+                    label: Some(format!("Fractal Noise Output Buffer {}", i).as_str()),
+                    usage: BufferUsages::COPY_SRC | BufferUsages::STORAGE,
+                    size: bufsize,
+                    mapped_at_creation: false,
+                }),
+                staging: render_device.create_buffer(&BufferDescriptor {
+                    label: Some(format!("Fractal Noise Staging Buffer {}", i).as_str()),
+                    usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+                    size: bufsize,
+                    mapped_at_creation: false,
+                }),
+            })),
+        }
+    }
 }
 
 pub(super) fn invocation_worker(
@@ -165,25 +148,26 @@ pub(super) fn invocation_worker(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     global_compute_store: Res<GlobalComputeStore>,
-    mut global_compute_queue: ResMut<GlobalComputeQueue>,
+    mut inv_dequeue: ResMut<InvocationDequeue>,
+    gen_queue: Res<GenerationQueue>,
 ) {
-    bevy::log::info!("invocation worker: {}", global_compute_queue.0.len());
-    
     let Some(pipeline) = pipeline_cache.get_compute_pipeline(global_compute_store.pipeline) else {
         return;
     };
 
-    while let Some(chunk) = global_compute_queue.0.front() {
+    while let Ok(chunk) = inv_dequeue.1.try_recv() {
         if let Err(_) = invoke_pipeline(
             &render_device,
             &render_queue,
             &global_compute_store,
             &pipeline,
             &chunk,
+            &gen_queue,
         ) {
+            inv_dequeue.0.send(chunk).unwrap();
             break;
         }
-        global_compute_queue.0.pop_front();
+        bevy::log::info!("Invoking {:?}", chunk);
     }
 }
 
@@ -192,73 +176,83 @@ fn invoke_pipeline(
     render_queue: &Res<RenderQueue>,
     global_compute_store: &Res<GlobalComputeStore>,
     pipeline: &ComputePipeline,
-    bounds: &IRect,
+    chunk: &IRect,
+    gen_queue: &Res<GenerationQueue>,
 ) -> Result<(), &'static str> {
     // Fetch Reusable Storage Buffers
-    let mut found_buffers = None;
+    let mut found_inv = None;
     for (i, buffers) in global_compute_store.buffers.iter().enumerate() {
         if !buffers.active.load(Ordering::Acquire) {
             buffers.active.store(true, Ordering::Release);
-            *buffers.chunk.lock().unwrap() = Some(bounds.to_owned());
-            found_buffers = Some((i, &buffers.output, &buffers.staging));
+            found_inv = Some((i, buffers));
             break;
         }
     }
-    let Some((index, out_buf, staging_buf)) = found_buffers else {
+    let Some((
+        index,
+        ComputeInvocation {
+            active: _,
+            output: out_buf,
+            staging: staging_buf,
+        },
+    )) = found_inv
+    else {
         return Err("No Available Storage Buffers");
     };
 
-    // Create Sender
-    let sender = global_compute_store.sender.clone();
-
-    // Create Temp. Uniform Buffers
-    let cfg_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
-        label: Some("Fractal Noise Config Buffer"),
-        usage: BufferUsages::UNIFORM,
-        contents: bytemuck::bytes_of(&CONFIG),
-    });
-    let bnd_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
-        label: Some("Fractal Noise Bounds Buffer"),
-        usage: BufferUsages::UNIFORM,
-        contents: bytemuck::bytes_of(&FractalNoiseBounds::from(bounds)),
-    });
-
-    // Create Bind Group
-    let bind_group_layout = pipeline.get_bind_group_layout(0);
-    let bind_group = render_device.create_bind_group(
-        None,
-        &bind_group_layout.into(), // convert into wgpu version
-        &BindGroupEntries::sequential((
-            cfg_buf.as_entire_binding(),
-            bnd_buf.as_entire_binding(),
-            out_buf.as_entire_binding(),
-        )),
-    );
-
-    // Check Chunk-Workgroup Divisibility
-    debug_assert_eq!(CHUNK[0] % WORKGROUP[0], 0);
-    debug_assert_eq!(WORKGROUP[1], 1);
-    debug_assert_eq!(CHUNK[1] % WORKGROUP[2], 0);
-
-    // Create Compute Pass
-    let mut encoder =
-        render_device.create_command_encoder(&CommandEncoderDescriptor { label: None });
     {
-        let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: None,
-            timestamp_writes: None,
+        // Create Temp. Uniform Buffers
+        let cfg_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("Fractal Noise Config Buffer"),
+            usage: BufferUsages::UNIFORM,
+            contents: bytemuck::bytes_of(&CONFIG),
         });
-        cpass.set_pipeline(pipeline);
-        cpass.set_bind_group(0, &bind_group, &[]);
-        cpass.dispatch_workgroups(CHUNK[0] / WORKGROUP[0], 1, CHUNK[1] / WORKGROUP[2]);
-    }
-    encoder.copy_buffer_to_buffer(out_buf, 0, staging_buf, 0, out_buf.size());
+        let bnd_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("Fractal Noise Bounds Buffer"),
+            usage: BufferUsages::UNIFORM,
+            contents: bytemuck::bytes_of(&FractalNoiseBounds::from(chunk)),
+        });
 
-    // Execute and Return
-    render_queue.submit(iter::once(encoder.finish()));
+        // Create Bind Group
+        let bind_group_layout = pipeline.get_bind_group_layout(0);
+        let bind_group = render_device.create_bind_group(
+            None,
+            &bind_group_layout.into(), // convert into wgpu version
+            &BindGroupEntries::sequential((
+                cfg_buf.as_entire_binding(),
+                bnd_buf.as_entire_binding(),
+                out_buf.as_entire_binding(),
+            )),
+        );
+
+        // Check Chunk-Workgroup Divisibility
+        debug_assert_eq!(SAMPLES[0] % WORKGROUP[0], 0);
+        debug_assert_eq!(WORKGROUP[1], 1);
+        debug_assert_eq!(SAMPLES[1] % WORKGROUP[2], 0);
+
+        // Create Compute Pass
+        let mut encoder =
+            render_device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+        {
+            let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: None,
+                timestamp_writes: None,
+            });
+            cpass.set_pipeline(pipeline);
+            cpass.set_bind_group(0, &bind_group, &[]);
+            cpass.dispatch_workgroups(SAMPLES[0] / WORKGROUP[0], 1, SAMPLES[1] / WORKGROUP[2]);
+        }
+        encoder.copy_buffer_to_buffer(out_buf, 0, staging_buf, 0, out_buf.size());
+
+        // Execute
+        render_queue.submit(iter::once(encoder.finish()));
+    }
+
+    let sender = gen_queue.0.clone();
+    let chunk = chunk.clone();
     staging_buf.map_async(MapMode::Read, .., move |err| {
         err.unwrap();
-        sender.try_send(index).unwrap();
+        sender.try_send((index, chunk)).unwrap();
     });
 
     Ok(())

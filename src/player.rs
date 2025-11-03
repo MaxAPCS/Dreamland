@@ -1,7 +1,7 @@
 use avian3d::prelude::*;
-use bevy::math::ops::{sin, cos};
+use bevy::math::ops::{cos, sin};
 use bevy::prelude::*;
-use bevy::window::{CursorOptions, CursorGrabMode};
+use bevy::window::{CursorGrabMode, CursorOptions};
 use bevy_tnua::TnuaUserControlsSystems;
 use bevy_tnua::prelude::*;
 use bevy_tnua_avian3d::{TnuaAvian3dPlugin, TnuaAvian3dSensorShape};
@@ -102,7 +102,7 @@ fn update_controls(
 
     if mouse.just_pressed(MouseButton::Left) {
         cursor_options.visible = false;
-        cursor_options.grab_mode = CursorGrabMode::Locked;
+        cursor_options.grab_mode = CursorGrabMode::Confined;
     }
 
     if keyboard.pressed(KeyCode::Escape) {
@@ -110,7 +110,7 @@ fn update_controls(
         cursor_options.grab_mode = CursorGrabMode::None;
     }
 
-    if cursor_options.grab_mode == CursorGrabMode::Locked {
+    if cursor_options.grab_mode != CursorGrabMode::None {
         for event in mouse_motion.read() {
             let delta = my_pastmouse.delta(&event.delta);
 
@@ -135,10 +135,14 @@ fn update_controls(
     if keyboard.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
         direction += forward.cross(Vec3::Y);
     }
+    direction = direction.normalize_or_zero();
+    if keyboard.any_pressed([KeyCode::ShiftLeft]) {
+        direction *= 1.5;
+    }
 
     controller.basis(TnuaBuiltinWalk {
         desired_forward: Some(forward),
-        desired_velocity: direction.normalize_or_zero() * 10.0,
+        desired_velocity: direction * 10.0,
         // The `float_height` must be greater (even if by little) from the distance between the
         // character's center and the lowest point of its collider.
         float_height: 1.5,

@@ -1,4 +1,3 @@
-
 use bevy::{
     math::{Vec2Swizzles, Vec4Swizzles, vec2, vec3, vec4},
     prelude::*,
@@ -9,7 +8,7 @@ fn permute_3(x: Vec3) -> Vec3 {
 }
 // MIT License. © Ian McEwan, Stefan Gustavson, Munrocket, Johan Helsing
 /// Simplex noise in two dimensions
-pub fn simplex_noise_2d_seeded(v: Vec2, seed: f32) -> f32 {
+fn simplex_noise_2d_seeded(v: Vec2, seed: f32) -> f32 {
     const C: Vec4 = vec4(
         0.211_324_87,  // (3.0 - sqrt(3.0)) / 6.0
         0.366_025_42,  // 0.5 * (sqrt(3.0) - 1.0)

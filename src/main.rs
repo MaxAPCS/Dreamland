@@ -3,8 +3,8 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
-mod cpu;
 mod compute;
+mod cpu;
 mod player;
 mod quadtree;
 mod world;

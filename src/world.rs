@@ -1,17 +1,14 @@
 use avian3d::prelude::RigidBody;
 use bevy::prelude::*;
-use bevy::render::RenderStartup;
 
 use crate::compute;
-use crate::compute::ComputeInit;
 use crate::cpu;
 pub(crate) struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, create_base);
-        app.sub_app_mut(bevy::render::RenderApp)
-            .add_systems(RenderStartup, create_world.after(ComputeInit));
+        app.add_systems(Startup, create_base)
+            .add_systems(Startup, create_world);
         // .add_systems(FixedPreUpdate, generate_chunks);
     }
 }
@@ -28,9 +25,9 @@ fn create_base(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_chunk(&mut commands, &asset_server, IRect::new(0, -128, 128, 0));
 }
 
-fn create_world(mut gcq: ResMut<compute::GlobalComputeQueue>) {
-    gcq.add(IRect::new(128, -128, 128 + 256, 128));
-
+fn create_world(mut inv_queue: ResMut<compute::InvocationQueue>) {
+    inv_queue.add(IRect::new(128, -128, 128 + 256, 128));
+    inv_queue.add(IRect::new(-128, 128, 128, 128 + 256));
     // commands.insert_resource(World {
     //     chunks: Mutex::new(Quad::new(bounds, chunk)),
     // });
