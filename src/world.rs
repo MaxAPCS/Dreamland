@@ -26,8 +26,11 @@ fn create_base(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn create_world(mut inv_queue: ResMut<compute::InvocationQueue>) {
-    inv_queue.add(IRect::new(128, -128, 128 + 256, 128));
-    inv_queue.add(IRect::new(-128, 128, 128, 128 + 256));
+    inv_queue.add(IRect::new(128, -128, 128 + 256, 128)); // right
+    inv_queue.add(IRect::new(-128, 128, 128, 128 + 256)); // top
+    inv_queue.add(IRect::new(-128 - 256, -128, -128, 128)); // left
+    inv_queue.add(IRect::new(-128, -128 - 256, 128, -128)); // bottom
+
     // commands.insert_resource(World {
     //     chunks: Mutex::new(Quad::new(bounds, chunk)),
     // });

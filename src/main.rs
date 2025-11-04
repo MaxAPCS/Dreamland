@@ -1,7 +1,11 @@
-use std::f32::consts::FRAC_PI_4;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_3, FRAC_PI_8};
 
-use bevy::prelude::*;
+use bevy::{
+    camera::Exposure,
+    pbr::{Atmosphere, AtmosphereSettings},
+    post_process::bloom::Bloom,
+    prelude::*,
+};
 
 mod compute;
 mod cpu;
@@ -33,20 +37,21 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         DistanceFog {
-            color: Color::srgba(0.35, 0.48, 0.66, 1.0),
-            directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
-            directional_light_exponent: 30.0,
-            falloff: FogFalloff::from_visibility_colors(
+            falloff: FogFalloff::from_visibility(
                 1024.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
-                Color::srgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
-                Color::srgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
             ),
+            ..default()
         },
+        Atmosphere { ..default() },
+        AtmosphereSettings { ..default() },
+        Exposure::SUNLIGHT,
+        Bloom::NATURAL,
     ));
 }
 
 fn setup_world(mut commands: Commands) {
     commands.spawn(DirectionalLight {
+        illuminance: light_consts::lux::DIRECT_SUNLIGHT,
         shadows_enabled: true,
         ..default()
     });
@@ -58,16 +63,8 @@ fn animate_light_direction(
 ) {
     light.rotation = Quat::from_euler(
         EulerRot::ZYX,
+        FRAC_PI_3,
         0.0,
-        time.elapsed_secs() * PI / 5.0,
-        -FRAC_PI_4,
+        time.elapsed_secs() * FRAC_PI_8 * 0.25,
     );
-}
-
-pub fn contains(big: &IRect, small: &IRect) -> bool {
-    // Check if small is completely inside big
-    big.min.x <= small.min.x
-        && big.max.x >= small.max.x
-        && big.min.y <= small.min.y
-        && big.max.y >= small.max.y
 }

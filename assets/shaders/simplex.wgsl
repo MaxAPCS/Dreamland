@@ -12,16 +12,19 @@ struct FractalNoiseConfig {
 }
 
 struct FractalNoiseBounds {
-    x: f32,
-    z: f32,
-    xstep: f32,
-    zstep: f32
+    x: f32, // Minimum X Coordinate
+    z: f32, // Minimum Z Coordinate
+    xstep: f32, // X Increment Per main()
+    zstep: f32  // Z Increment per main()
+    // Maximum X Coordinate = x + xstep * num_workgroups.x * workgroup_size.x
+    //                      = x + xstep * samples.x
 }
 
 fn permute_3_(x: vec3<f32>) -> vec3<f32> {
     return (((x * 34.) + 1.) * x) % vec3(289.);
 }
 
+//  MIT License. © Ian McEwan, Stefan Gustavson, Munrocket, Johan Helsing
 fn simplex_noise_2d_seeded(v: vec2<f32>, seed: f32) -> f32 {
     let C = vec4(
         0.211324865405187, // (3.0 - sqrt(3.0)) / 6.0
@@ -79,7 +82,7 @@ fn main(
 
     var sum = 0.;
     var amplitude = config.amplitude;
-    var frequency = 1.;
+    var frequency = 0.01;
 
     for (var i = 0u; i < config.octaves; i++) {
         sum += simplex_noise_2d_seeded(pos * frequency, config.seed) * amplitude;
@@ -88,6 +91,6 @@ fn main(
     }
 
     output[
-        global_invocation_id.x + global_invocation_id.z * num_workgroups.z * WORKGROUPZ
+        global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
     ] = exp2(sum);
 }

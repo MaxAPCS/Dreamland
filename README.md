@@ -11,6 +11,7 @@ Dreamland is an infinite world that continuously generates around the user, rend
 - CPU Noise Generation
 - Mesh Construction
 - Rendering Optimizations
+- GPU Compute Noise Generation
 
 ### In Progress
 - Quadtree LOD Framework
@@ -18,6 +19,9 @@ Dreamland is an infinite world that continuously generates around the user, rend
 ### Planned
 - Infinite Generation
 - Procedural Foliage
-- Skybox, Clouds
+- Procedural Clouds
 - Analytical Derivative Erosion Hack
 - Mobile Device Accelerometer Camera Control
+
+## Acknowledgements
+Noise Algorithms: [Noisy Bevy](https://github.com/johanhelsing/noisy_bevy)

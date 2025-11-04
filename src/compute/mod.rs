@@ -40,7 +40,7 @@ impl Plugin for ComputePlugin {
     }
 }
 
-pub(self) const SAMPLES: [u32; 2] = [128, 128]; // must be multiple of workgroup
+pub(self) const SAMPLES: [u32; 3] = [128, 1, 128]; // must be multiple of workgroup
 const COMPUTEBUFFERSIZE: usize = 16;
 
 // Public Interface
@@ -65,6 +65,7 @@ pub(self) struct GenerationDequeue(mpsc::Receiver<(usize, IRect)>);
 pub(self) struct GlobalComputeStore {
     pipeline: CachedComputePipelineId,
     buffers: Arc<[ComputeInvocation; COMPUTEBUFFERSIZE]>,
+    config: Buffer,
 }
 
 struct ComputeInvocation {

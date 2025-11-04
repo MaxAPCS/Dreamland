@@ -43,7 +43,7 @@
 //         if !contains(&self.bounds, rect) {
 //             return Err("Quad does not contain rect.");
 //         }
-//         let res = Ref::filter_map::<Quad<T>, _>(self.data.borrow(), |c| 
+//         let res = Ref::filter_map::<Quad<T>, _>(self.data.borrow(), |c|
 //         if let Node::Branch(children) = c {
 //             if contains(&children[0].bounds, &rect) {
 //                 return Some(&children[0])
@@ -99,4 +99,12 @@
 //     pub fn get_bounds(&self) -> &IRect {
 //         &self.bounds
 //     }
+// }
+
+// pub fn contains(big: &IRect, small: &IRect) -> bool {
+//     // Check if small is completely inside big
+//     big.min.x <= small.min.x
+//         && big.max.x >= small.max.x
+//         && big.min.y <= small.min.y
+//         && big.max.y >= small.max.y
 // }

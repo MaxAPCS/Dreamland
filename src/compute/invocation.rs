@@ -54,7 +54,7 @@ impl From<&IRect> for FractalNoiseBounds {
             x: chunk.min.x as f32,
             z: chunk.min.y as f32,
             xstep: chunk.width() as f32 / (SAMPLES[0] - 1) as f32,
-            zstep: chunk.height() as f32 / (SAMPLES[1] - 1) as f32,
+            zstep: chunk.height() as f32 / (SAMPLES[2] - 1) as f32,
         }
     }
 }
@@ -121,7 +121,7 @@ impl FromWorld for GlobalComputeStore {
         });
 
         // Create Reusable Storage Buffers
-        let bufsize = std::mem::size_of::<[f32; (SAMPLES[0] * SAMPLES[1]) as usize]>() as _;
+        let bufsize = std::mem::size_of::<[f32; (SAMPLES[0] * SAMPLES[2]) as usize]>() as _;
         Self {
             pipeline: pipeline,
             buffers: Arc::new(std::array::from_fn(|i| ComputeInvocation {
@@ -139,6 +139,11 @@ impl FromWorld for GlobalComputeStore {
                     mapped_at_creation: false,
                 }),
             })),
+            config: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("Fractal Noise Config Buffer"),
+                usage: BufferUsages::UNIFORM,
+                contents: bytemuck::bytes_of(&CONFIG),
+            }),
         }
     }
 }
@@ -167,7 +172,6 @@ pub(super) fn invocation_worker(
             inv_dequeue.0.send(chunk).unwrap();
             break;
         }
-        bevy::log::info!("Invoking {:?}", chunk);
     }
 }
 
@@ -201,12 +205,7 @@ fn invoke_pipeline(
     };
 
     {
-        // Create Temp. Uniform Buffers
-        let cfg_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("Fractal Noise Config Buffer"),
-            usage: BufferUsages::UNIFORM,
-            contents: bytemuck::bytes_of(&CONFIG),
-        });
+        // Create Temp. Uniform Buffer
         let bnd_buf = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("Fractal Noise Bounds Buffer"),
             usage: BufferUsages::UNIFORM,
@@ -219,7 +218,7 @@ fn invoke_pipeline(
             None,
             &bind_group_layout.into(), // convert into wgpu version
             &BindGroupEntries::sequential((
-                cfg_buf.as_entire_binding(),
+                global_compute_store.config.as_entire_binding(),
                 bnd_buf.as_entire_binding(),
                 out_buf.as_entire_binding(),
             )),
@@ -227,8 +226,8 @@ fn invoke_pipeline(
 
         // Check Chunk-Workgroup Divisibility
         debug_assert_eq!(SAMPLES[0] % WORKGROUP[0], 0);
-        debug_assert_eq!(WORKGROUP[1], 1);
-        debug_assert_eq!(SAMPLES[1] % WORKGROUP[2], 0);
+        debug_assert_eq!(SAMPLES[1] % WORKGROUP[1], 0);
+        debug_assert_eq!(SAMPLES[2] % WORKGROUP[2], 0);
 
         // Create Compute Pass
         let mut encoder =
@@ -240,7 +239,11 @@ fn invoke_pipeline(
             });
             cpass.set_pipeline(pipeline);
             cpass.set_bind_group(0, &bind_group, &[]);
-            cpass.dispatch_workgroups(SAMPLES[0] / WORKGROUP[0], 1, SAMPLES[1] / WORKGROUP[2]);
+            cpass.dispatch_workgroups(
+                SAMPLES[0] / WORKGROUP[0],
+                SAMPLES[1] / WORKGROUP[1],
+                SAMPLES[2] / WORKGROUP[2],
+            );
         }
         encoder.copy_buffer_to_buffer(out_buf, 0, staging_buf, 0, out_buf.size());
 
