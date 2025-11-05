@@ -10,6 +10,7 @@ use bevy::{
 };
 mod generation;
 mod invocation;
+mod tests;
 
 pub(crate) struct ComputePlugin;
 impl Plugin for ComputePlugin {

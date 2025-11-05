@@ -1,7 +1,8 @@
-use std::f32::consts::{FRAC_PI_3, FRAC_PI_8};
+use std::f32::consts::{FRAC_PI_4, FRAC_PI_8};
 
 use bevy::{
     camera::Exposure,
+    core_pipeline::tonemapping::Tonemapping,
     pbr::{Atmosphere, AtmosphereSettings},
     post_process::bloom::Bloom,
     prelude::*,
@@ -19,7 +20,9 @@ fn main() {
             primary_window: Some(Window {
                 fit_canvas_to_parent: true,
                 prevent_default_event_handling: false,
-                window_theme: Some(bevy::window::WindowTheme::Dark),
+                recognize_pinch_gesture: false,
+                recognize_rotation_gesture: false,
+                recognize_doubletap_gesture: false,
                 ..default()
             }),
             ..default()
@@ -46,6 +49,7 @@ fn setup_camera(mut commands: Commands) {
         AtmosphereSettings { ..default() },
         Exposure::SUNLIGHT,
         Bloom::NATURAL,
+        Tonemapping::Reinhard,
     ));
 }
 
@@ -55,6 +59,11 @@ fn setup_world(mut commands: Commands) {
         shadows_enabled: true,
         ..default()
     });
+    commands.spawn((
+        Transform::from_xyz(0.0, 8.0, 0.0),
+        avian3d::prelude::Collider::cylinder(4.0, 1.0),
+        avian3d::prelude::RigidBody::Static,
+    ));
 }
 
 fn animate_light_direction(
@@ -63,7 +72,7 @@ fn animate_light_direction(
 ) {
     light.rotation = Quat::from_euler(
         EulerRot::ZYX,
-        FRAC_PI_3,
+        FRAC_PI_4,
         0.0,
         time.elapsed_secs() * FRAC_PI_8 * 0.25,
     );

@@ -82,7 +82,7 @@ fn main(
 
     var sum = 0.;
     var amplitude = config.amplitude;
-    var frequency = 0.01;
+    var frequency = 0.0078125; // 1/128
 
     for (var i = 0u; i < config.octaves; i++) {
         sum += simplex_noise_2d_seeded(pos * frequency, config.seed) * amplitude;
@@ -92,5 +92,5 @@ fn main(
 
     output[
         global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
-    ] = exp2(sum);
+    ] = sum * sum;
 }

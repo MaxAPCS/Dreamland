@@ -15,7 +15,9 @@ impl Plugin for PlayerPlugin {
             TnuaControllerPlugin::new(FixedUpdate),
             TnuaAvian3dPlugin::new(FixedUpdate),
         ))
-        .add_systems(Startup, initialize)
+        .init_resource::<PlayerRotation>()
+        .init_resource::<PastMouseLocation>()
+        .add_systems(Startup, spawn_player)
         .add_systems(FixedUpdate, update_controls.in_set(TnuaUserControlsSystems))
         .add_systems(
             PostUpdate,
@@ -29,7 +31,7 @@ impl Plugin for PlayerPlugin {
 #[derive(Component)]
 pub(crate) struct Player;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct PastMouseLocation {
     location: Option<Vec2>,
 }
@@ -46,7 +48,7 @@ impl PastMouseLocation {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct PlayerRotation {
     // All In Radians
     yaw: f32,
@@ -65,17 +67,10 @@ impl PlayerRotation {
     }
 }
 
-fn initialize(mut commands: Commands) {
-    commands.insert_resource(PlayerRotation {
-        yaw: 0.0,
-        pitch: 0.0,
-    });
-
-    commands.insert_resource(PastMouseLocation { location: None });
-
+fn spawn_player(mut commands: Commands) {
     commands.spawn((
         Player,
-        Transform::from_xyz(0.0, 2.0, 0.0),
+        Transform::from_xyz(0.0, 10.0, 0.0),
         RigidBody::Dynamic,
         Collider::capsule(0.5, 1.0),
         TnuaController::default(),
@@ -93,10 +88,9 @@ fn update_controls(
 
     mut cursor_options: Single<&mut CursorOptions>,
     mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
-
-    mut query: Query<&mut TnuaController>,
+    mut controller: Query<&mut TnuaController>,
 ) {
-    let Ok(mut controller) = query.single_mut() else {
+    let Ok(mut controller) = controller.single_mut() else {
         return;
     };
 

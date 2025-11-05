@@ -3,6 +3,42 @@ use bevy::{
     prelude::*,
 };
 
+use crate::cpu::SIDE;
+
+struct FractalNoiseConfig {
+    seed: f32,
+    octaves: u32,
+    lacunarity: f32,
+    gain: f32,
+    amplitude: f32,
+}
+
+const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
+    seed: 0.0,
+    octaves: 5,
+    lacunarity: 1.75,
+    gain: 0.5,
+    amplitude: 3.5,
+};
+
+struct FractalNoiseBounds {
+    x: f32,
+    z: f32,
+    xstep: f32,
+    zstep: f32,
+}
+
+impl From<&IRect> for FractalNoiseBounds {
+    fn from(chunk: &IRect) -> Self {
+        Self {
+            x: chunk.min.x as f32,
+            z: chunk.min.y as f32,
+            xstep: chunk.width() as f32 / (SIDE - 1) as f32,
+            zstep: chunk.height() as f32 / (SIDE - 1) as f32,
+        }
+    }
+}
+
 fn permute_3(x: Vec3) -> Vec3 {
     (((x * 34.) + 1.) * x) % Vec3::splat(289.)
 }
@@ -66,22 +102,37 @@ fn simplex_noise_2d_seeded(v: Vec2, seed: f32) -> f32 {
 }
 
 /// Fractional brownian motion (fbm) based on seeded 2d simplex noise
-pub fn fbm_simplex_2d_seeded(
-    pos: Vec2,
-    octaves: usize,
-    lacunarity: f32,
-    gain: f32,
-    seed: f32,
-) -> f32 {
+fn fbm_simplex_2d_seeded(pos: Vec2, config: FractalNoiseConfig) -> f32 {
     let mut sum = 0.;
-    let mut amplitude = 1.;
-    let mut frequency = 0.01;
+    let mut amplitude = config.amplitude;
+    let mut frequency = 1. / 128.;
 
-    for _ in 0..octaves {
-        sum += simplex_noise_2d_seeded(pos * frequency, seed) * amplitude;
-        amplitude *= gain;
-        frequency *= lacunarity;
+    for _ in 0..config.octaves {
+        sum += simplex_noise_2d_seeded(pos * frequency, config.seed) * amplitude;
+        amplitude *= config.gain;
+        frequency *= config.lacunarity;
     }
 
-    sum
+    sum * sum
+}
+
+#[allow(dead_code)]
+pub fn invoke_function(chunk: &IRect) -> [f32; SIDE * SIDE] {
+    let mut heightmap = [0f32; SIDE * SIDE];
+
+    let chunk = FractalNoiseBounds::from(chunk);
+
+    let mut i = 0;
+    for cz in 0..SIDE {
+        let z = chunk.zstep * cz as f32;
+        for cx in 0..SIDE {
+            let x = chunk.xstep * cx as f32;
+
+            heightmap[i] = fbm_simplex_2d_seeded(Vec2::new(chunk.x + x, chunk.z + z), CONFIG);
+
+            i += 1;
+        }
+    }
+
+    heightmap
 }
