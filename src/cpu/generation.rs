@@ -5,8 +5,6 @@ use bevy::{
     prelude::*,
 };
 
-const SIDE: usize = 128;
-
 pub fn generate_mesh_physics(chunk: &IRect, heightmap: &dyn Fn(Vec2) -> f32) -> (Mesh, Collider) {
     let mut vertice = [[0f32; 3]; SIDE * SIDE];
     let mut normals = [[0f32; 3]; SIDE * SIDE];

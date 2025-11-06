@@ -22,9 +22,13 @@ impl Plugin for ComputePlugin {
             .insert_resource(InvocationDequeue(itx.clone(), irx))
             .insert_resource(GenerationQueue(gtx))
             .add_systems(Render, invocation::invocation_worker);
-        app.insert_resource(InvocationQueue(itx))
+        app.add_message::<GenerationMessage>()
+            .insert_resource(InvocationQueue(itx))
             .insert_resource(GenerationDequeue(grx))
-            .add_systems(FixedPreUpdate, generation::generation_worker);
+            .add_systems(
+                FixedPreUpdate,
+                generation::generation_worker.in_set(GenerationWork),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -77,3 +81,8 @@ struct ComputeInvocation {
 
 #[derive(Resource)]
 pub(self) struct GlobalComputeStoreRef(Arc<[ComputeInvocation; COMPUTEBUFFERSIZE]>);
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GenerationWork;
+
+pub use generation::GenerationMessage;

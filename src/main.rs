@@ -27,6 +27,7 @@ fn main() {
             }),
             ..default()
         }))
+        .insert_resource(Time::<Fixed>::from_hz(24.))
         .add_plugins(avian3d::PhysicsPlugins::default())
         .add_plugins(player::PlayerPlugin)
         .add_plugins(compute::ComputePlugin)

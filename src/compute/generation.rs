@@ -11,11 +11,18 @@ use bevy::{
     prelude::*,
 };
 
+#[derive(Message)]
+pub struct GenerationMessage {
+    pub bounds: IRect,
+    pub entity: Entity,
+}
+
 pub(super) fn generation_worker(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     global_compute_store: Res<GlobalComputeStoreRef>,
     mut gen_dequeue: ResMut<GenerationDequeue>,
+    mut messager: MessageWriter<GenerationMessage>,
 ) {
     while let Ok((index, chunk)) = gen_dequeue.0.try_recv() {
         // Load Reusable Storage Buffers
@@ -27,7 +34,7 @@ pub(super) fn generation_worker(
 
         debug_assert_eq!(active.load(Ordering::Acquire), true);
 
-        {
+        let id = {
             // Load Data from Buffer
             let view = staging.get_mapped_range(..);
             let heightmap = bytemuck::cast_slice(&view);
@@ -36,38 +43,46 @@ pub(super) fn generation_worker(
                 // Highest Detail - Generate Physics
                 let mesh = generate_mesh_trilist(&FractalNoiseBounds::from(&chunk), heightmap);
 
-                commands.spawn((
-                    RigidBody::Static,
-                    Collider::trimesh_from_mesh(&mesh).unwrap(),
-                    Mesh3d(asset_server.add(mesh)),
-                    MeshMaterial3d(asset_server.add(StandardMaterial {
-                        base_color: Color::linear_rgb(0., 1., 0.),
-                        ..Default::default()
-                    })),
-                    Transform::from_translation(Vec3 {
-                        x: chunk.min.x as f32,
-                        y: 0.,
-                        z: chunk.min.y as f32,
-                    }),
-                ));
+                commands
+                    .spawn((
+                        RigidBody::Static,
+                        Collider::trimesh_from_mesh(&mesh).unwrap(),
+                        Mesh3d(asset_server.add(mesh)),
+                        MeshMaterial3d(asset_server.add(StandardMaterial {
+                            base_color: Color::linear_rgb(0., 1., 0.),
+                            ..Default::default()
+                        })),
+                        Transform::from_translation(Vec3 {
+                            x: chunk.min.x as f32,
+                            y: 0.,
+                            z: chunk.min.y as f32,
+                        }),
+                    ))
+                    .id()
             } else {
                 // Lower Detail - No Physics
                 let mesh = generate_mesh(&FractalNoiseBounds::from(&chunk), heightmap);
 
-                commands.spawn((
-                    Mesh3d(asset_server.add(mesh)),
-                    MeshMaterial3d(asset_server.add(StandardMaterial {
-                        base_color: Color::linear_rgb(0., 1., 0.),
-                        ..Default::default()
-                    })),
-                    Transform::from_translation(Vec3 {
-                        x: chunk.min.x as f32,
-                        y: 0.,
-                        z: chunk.min.y as f32,
-                    }),
-                ));
+                commands
+                    .spawn((
+                        Mesh3d(asset_server.add(mesh)),
+                        MeshMaterial3d(asset_server.add(StandardMaterial {
+                            base_color: Color::linear_rgb(0., 1., 0.),
+                            ..Default::default()
+                        })),
+                        Transform::from_translation(Vec3 {
+                            x: chunk.min.x as f32,
+                            y: 0.,
+                            z: chunk.min.y as f32,
+                        }),
+                    ))
+                    .id()
             }
-        }
+        };
+        messager.write(GenerationMessage {
+            bounds: chunk,
+            entity: id,
+        });
 
         // Clean Up Buffers
         staging.unmap();

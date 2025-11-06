@@ -21,6 +21,7 @@ bevy = { version = "0.17", default-features = false, features = [
   "bevy_shader",
   "bevy_window",
   "bevy_winit",
+  "debug",
   "multi_threaded",
   "std",
   "webgpu",
