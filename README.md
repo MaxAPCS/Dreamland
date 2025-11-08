@@ -14,10 +14,11 @@ Dreamland is an infinite world that continuously generates around the user, rend
 - Procedural Atmosphere
 - GPU Compute Noise Generation
 - Quadtree LOD Framework
-
-### In Progress
 - Dynamic LOD Centering
 - Infinite Generation
+
+### In Progress
+- Testing, Optimization
 
 ### Planned
 - Procedural Foliage

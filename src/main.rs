@@ -16,24 +16,17 @@ mod world;
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        fit_canvas_to_parent: true,
-                        prevent_default_event_handling: false,
-                        recognize_pinch_gesture: false,
-                        recognize_rotation_gesture: false,
-                        recognize_doubletap_gesture: false,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .set(bevy::log::LogPlugin {
-                    filter: "portfolio=debug".to_string(),
-                    ..default()
-                }),
-        )
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                fit_canvas_to_parent: true,
+                prevent_default_event_handling: false,
+                recognize_pinch_gesture: false,
+                recognize_rotation_gesture: false,
+                recognize_doubletap_gesture: false,
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(Time::<Fixed>::from_hz(24.))
         .add_plugins(avian3d::PhysicsPlugins::default())
         .add_plugins(player::PlayerPlugin)
