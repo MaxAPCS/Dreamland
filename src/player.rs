@@ -70,7 +70,7 @@ impl PlayerRotation {
 fn spawn_player(mut commands: Commands) {
     commands.spawn((
         Player,
-        Transform::from_xyz(0.0, 10.0, 0.0),
+        Transform::from_xyz(0.0, 20.0, 0.0),
         RigidBody::Dynamic,
         Collider::capsule(0.5, 1.0),
         TnuaController::default(),

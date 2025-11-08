@@ -127,6 +127,10 @@ impl<T> Quad<T> {
         }
     }
 
+    pub fn get_bounds(&self) -> &IRect {
+        &self.bounds
+    }
+
     pub fn for_each<F: FnMut(&mut Quad<T>)>(&mut self, callback: &mut F) {
         match &mut self.node {
             Node::Branch(children) => {
@@ -161,19 +165,44 @@ impl<T: FromBounds> Quad<T> {
         self.node = Node::Leaf(T::new(&self.bounds));
     }
 
-    pub fn set_min_depth(&mut self, point: &IVec2, target_depth: u32) {
+    /// NOTE: ONLY CALL ON PARENT NODE - assumes starting depth = 0
+    pub fn set_min_depth(&mut self, point: &IVec2, target_depth: u32) -> &Quad<T> {
         self.set_min_depth_recurse(point, target_depth, 0)
     }
 
-    fn set_min_depth_recurse(&mut self, point: &IVec2, target_depth: u32, current_depth: u32) {
+    /// Recursively ensures the quadtree node containing `point` has a depth of at least `target_depth`.
+    ///
+    /// # Arguments
+    /// * `point` - The point to locate within the quadtree.
+    /// * `target_depth` - The minimum depth (inclusive) the containing node must achieve.
+    /// * `current_depth` - Current recursion depth (starts at 0 for root node).
+    ///
+    /// # Returns
+    /// A reference to the parent of the leaf node at the target depth containing `point`.
+    ///
+    /// # Example
+    /// ```
+    /// // Ensures point (x,y) has at least depth 3
+    /// quad.set_min_depth(&IVec2::new(x, y), 3);
+    /// ```
+    fn set_min_depth_recurse(
+        &mut self,
+        point: &IVec2,
+        target_depth: u32,
+        current_depth: u32,
+    ) -> &Quad<T> {
         debug_assert!(self.bounds.contains(*point));
 
         if current_depth >= target_depth {
-            return;
+            return self;
         }
 
         if self.is_leaf() {
             self.subdivide();
+        }
+
+        if current_depth == target_depth - 1 {
+            return self;
         }
 
         let Node::Branch(children) = &mut self.node else {
@@ -212,4 +241,136 @@ impl<T> std::fmt::Display for Quad<T> {
 
 pub trait FromBounds {
     fn new(bounds: &IRect) -> Self;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_quadrant_consistency() {
+        let rect = IRect::new(0, 0, 100, 100);
+        let points = [
+            IVec2::new(0, 0),
+            IVec2::new(50, 50),
+            IVec2::new(99, 99),
+            IVec2::new(0, 99),
+            IVec2::new(99, 0),
+            IVec2::new(25, 25),
+            IVec2::new(75, 75),
+        ];
+
+        for point in points {
+            let q = Quadrant::from_point(&rect, &point);
+            assert!(q.is_some(), "Point {:?} should map to a quadrant", point);
+            let q = q.unwrap();
+            let sub_rect = q.sub_rect(&rect);
+            assert!(
+                sub_rect.contains(point),
+                "Point {:?} should be contained in sub-rectangle {:?}",
+                point,
+                sub_rect
+            );
+        }
+
+        for point in points {
+            assert!(
+                Quadrant::from_point(&rect, &point)
+                    .unwrap()
+                    .sub_rect(&rect)
+                    .contains(point),
+                "Subrect of {:?} should contain it.",
+                point
+            );
+        }
+
+        for quad in Quadrant::entries() {
+            assert_eq!(
+                Quadrant::entries()[quad as usize],
+                quad,
+                "Quadrant {:?} should be at its own index in entries.",
+                quad
+            );
+        }
+    }
+
+    #[derive(PartialEq, Debug)]
+    struct Dummy(i32);
+    impl FromBounds for Dummy {
+        fn new(_: &IRect) -> Self {
+            Self(0)
+        }
+    }
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_quadtree_creation_and_depth() {
+        let bounds = IRect::new(0, 0, 100, 100);
+        let mut quad = Quad::<Dummy>::new(bounds);
+
+        assert!(quad.is_leaf());
+        assert_eq!(quad.get_bounds(), &bounds);
+
+        // Test setting minimum depth
+        let point = IVec2::new(50, 50);
+        let _parent = quad.set_min_depth(&point, 2);
+
+        assert!(!quad.is_leaf());
+        assert_eq!(quad.get_bounds(), &bounds);
+    }
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_leaf_value_setting() {
+        let bounds = IRect::new(0, 0, 100, 100);
+        let mut quad = Quad::<Dummy>::new(bounds);
+
+        assert_eq!(quad.get_leaf(), Some(&Dummy(0)));
+
+        quad.set_leaf(Dummy(42));
+        assert_eq!(quad.get_leaf(), Some(&Dummy(42)));
+    }
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_bounds_matching() {
+        let bounds = IRect::new(0, 0, 100, 100);
+        let mut quad = Quad::<Dummy>::new(bounds);
+
+        let matching_bounds = IRect::new(0, 0, 100, 100);
+        let result = quad.matching_bounds(&matching_bounds);
+        assert!(matches!(result, LocationResult::Found(_)));
+    }
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_for_each() {
+        let bounds = IRect::new(0, 0, 100, 100);
+        let mut quad = Quad::<Dummy>::new(bounds);
+        let mut count = 0;
+
+        quad.for_each(&mut |_| {
+            count += 1;
+        });
+
+        assert_eq!(count, 1);
+
+        quad.subdivide();
+
+        count = 0;
+        quad.for_each(&mut |_| {
+            count += 1;
+        });
+
+        assert_eq!(count, 4);
+    }
+
+    #[wasm_bindgen_test(unsupported = test)]
+    fn test_subdivide_and_unite() {
+        let bounds = IRect::new(0, 0, 100, 100);
+        let mut quad = Quad::<Dummy>::new(bounds);
+
+        quad.subdivide();
+        assert!(!quad.is_leaf());
+
+        quad.unite();
+        assert!(quad.is_leaf());
+    }
 }

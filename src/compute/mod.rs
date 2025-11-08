@@ -8,9 +8,9 @@ use bevy::{
         render_resource::{Buffer, CachedComputePipelineId},
     },
 };
+
 mod generation;
 mod invocation;
-mod tests;
 
 pub(crate) struct ComputePlugin;
 impl Plugin for ComputePlugin {

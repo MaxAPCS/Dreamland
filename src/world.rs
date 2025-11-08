@@ -1,28 +1,36 @@
-use bevy::prelude::*;
+use std::sync::{Arc, Mutex};
 
-use crate::{
-    compute::{self, GenerationMessage},
-    player::Player,
-    quadtree::*,
-};
+use bevy::prelude::*;
+use once_cell::sync::Lazy;
+use tokio::sync::mpsc;
+
+use crate::{compute, player::Player, quadtree::*};
 pub(crate) struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Chunks>()
-            .add_systems(FixedPreUpdate, chunk_link.after(compute::GenerationWork))
+            .init_resource::<PrevPlayerPos>()
+            .add_systems(
+                FixedPreUpdate,
+                (chunk_destroy, chunk_link).after(compute::GenerationWork),
+            )
             .add_systems(FixedPostUpdate, (chunk_initialize, chunk_generate).chain());
     }
 }
+
+#[derive(Resource, Default)]
+struct PrevPlayerPos(Option<IVec2>);
 
 #[derive(Resource)]
 struct Chunks(Quad<Chunk>);
 
 #[derive(Debug)]
 enum Chunk {
-    Pending(IRect),
-    Exists,
-    Found(Entity),
+    Empty,          // will not be created
+    Pending(IRect), // yet to be created
+    Exists,         // in invocation queue
+    Found(Entity),  // linked
 }
 
 const WORLD_SIZE: u32 = 2048;
@@ -41,6 +49,16 @@ const LEVELS: [u32; MAX_DEPTH] = {
 };
 
 // Initialization
+impl FromBounds for Chunk {
+    // -(initialize)-> Pending
+    fn new(bounds: &IRect) -> Self {
+        if bounds.width() >= LEVELS[0] as i32 {
+            Chunk::Empty
+        } else {
+            Chunk::Pending(bounds.clone())
+        }
+    }
+}
 impl Default for Chunks {
     fn default() -> Self {
         Self(Quad::new(IRect::from_center_size(
@@ -49,15 +67,10 @@ impl Default for Chunks {
         )))
     }
 }
-impl FromBounds for Chunk {
-    fn new(bounds: &IRect) -> Self {
-        Chunk::Pending(bounds.clone())
-    }
-}
-
 fn chunk_initialize(
-    mut world: ResMut<Chunks>,
+    mut chunks: ResMut<Chunks>,
     player_query: Query<&Transform, (With<Player>, Changed<Transform>)>,
+    mut prev_pos: ResMut<PrevPlayerPos>,
 ) {
     let Ok(Transform {
         translation: player_pos,
@@ -68,44 +81,71 @@ fn chunk_initialize(
     };
 
     let player_pos = player_pos.xz().as_ivec2();
+    let player_pos_prev = *prev_pos.0.get_or_insert(player_pos);
     for (depth, &size) in LEVELS.iter().enumerate() {
-        let rect = IRect::from_center_size(player_pos, IVec2::splat(size as i32));
-        for corner in &[
-            rect.min,
-            IVec2::new(rect.max.x, rect.min.y),
-            rect.max,
-            IVec2::new(rect.min.x, rect.max.y),
-        ] {
-            world.0.set_min_depth(corner, depth as u32 + 1);
+        let size = IVec2::splat(size as i32);
+        let rect = IRect::from_center_size(player_pos, size);
+        let prevrect = IRect::from_center_size(player_pos_prev, size);
+
+        let mut qualityzone = None;
+        for corner in corners(&rect) {
+            let bounds = chunks
+                .0
+                .set_min_depth(&corner, depth as u32 + 1)
+                .get_bounds();
+            qualityzone = match qualityzone {
+                None => Some(*bounds),
+                Some(qualitybounds) => Some(qualitybounds.union(*bounds)),
+            }
+        }
+
+        let qualityzone = qualityzone.unwrap();
+        for corner in corners(&prevrect) {
+            if !qualityzone.contains(corner) {
+                chunks.0.set_max_depth(&corner, depth as u32);
+            }
         }
     }
+
+    prev_pos.0 = Some(player_pos_prev);
 }
 
 // Creation
 impl Quad<Chunk> {
+    /// Pending -(generate)-> Exists
     fn generate(&mut self, inv_queue: &mut ResMut<compute::InvocationQueue>) {
         if let Some(Chunk::Pending(bounds)) = self.get_leaf() {
             bevy::log::debug!("GENER {}", self);
             inv_queue.add(bounds.to_owned());
             self.set_leaf(Chunk::Exists);
         }
-        // does nothing if not pending
     }
 }
-fn chunk_generate(mut world: ResMut<Chunks>, mut inv_queue: ResMut<compute::InvocationQueue>) {
-    world
+fn chunk_generate(mut chunks: ResMut<Chunks>, mut inv_queue: ResMut<compute::InvocationQueue>) {
+    chunks
         .0
         .for_each(&mut |chunk| chunk.generate(&mut inv_queue));
 }
 
 // Linking
+impl Quad<Chunk> {
+    /// Exists -(link)-> Found
+    fn link(&mut self, entity: Entity) {
+        debug_assert!(
+            matches!(self.get_leaf().expect("Node Should Be Leaf"), Chunk::Exists),
+            "Node State Exception: Expected [Exists], Found [{:?}]",
+            self.get_leaf().unwrap()
+        );
+        self.set_leaf(Chunk::Found(entity));
+    }
+}
 impl Chunks {
     // find the chunk matching these bounds, and assign the id to that chunk (exists -> found)
-    fn link(&mut self, bounds: &IRect, id: Entity) -> Result<(), ()> {
+    fn link(&mut self, bounds: &IRect, entity: Entity) -> Result<(), ()> {
         match self.0.matching_bounds(bounds) {
             LocationResult::Found(chunk) => {
                 bevy::log::debug!("LINKD {}", chunk);
-                chunk.link(id);
+                chunk.link(entity);
                 Ok(())
             }
             LocationResult::Closest(_) => unreachable!(), // This indicates a build was queued for a branch- but only leaves queue builds.
@@ -113,35 +153,47 @@ impl Chunks {
         }
     }
 }
-impl Quad<Chunk> {
-    fn link(&mut self, id: Entity) {
-        debug_assert!(
-            matches!(self.get_leaf().expect("Node Should Be Leaf"), Chunk::Exists),
-            "Node State Exception: Expected [Exists], Found [{:?}]",
-            self.get_leaf().unwrap()
-        );
-        self.set_leaf(Chunk::Found(id));
-    }
-}
 fn chunk_link(
     mut world: ResMut<Chunks>,
     mut messager: MessageReader<compute::GenerationMessage>,
     mut commands: Commands,
 ) {
-    for GenerationMessage { bounds, entity } in messager.read() {
+    for compute::GenerationMessage { bounds, entity } in messager.read() {
         if let Err(_) = world.link(bounds, entity.clone()) {
-            debug_assert!(false, "Orphaned Chunk Detected");
+            bevy::log::warn!("Orphaned Chunk Detected");
             commands.get_entity(*entity).unwrap().despawn();
         }
     }
 }
 
 // Destruction
+static DESTROY_QUEUE: Lazy<(
+    mpsc::UnboundedSender<Entity>,
+    Arc<Mutex<mpsc::UnboundedReceiver<Entity>>>,
+)> = Lazy::new(|| {
+    let (s, r) = mpsc::unbounded_channel();
+    (s, Arc::new(Mutex::new(r)))
+});
 impl Drop for Chunk {
     fn drop(&mut self) {
-        if let Chunk::Found(_) = self {
-            // delete from the world
-            bevy::log::info!("Orphaned Chunk Created");
+        if let Chunk::Found(entity) = self {
+            DESTROY_QUEUE.0.send(entity.clone()).unwrap();
         }
     }
+}
+fn chunk_destroy(mut commands: Commands) {
+    let mut recv = DESTROY_QUEUE.1.lock().unwrap();
+    while let Ok(entity) = recv.try_recv() {
+        commands.entity(entity).despawn();
+    }
+}
+
+// Utility
+fn corners(rect: &IRect) -> [IVec2; 4] {
+    [
+        rect.min,
+        IVec2::new(rect.max.x, rect.min.y),
+        rect.max,
+        IVec2::new(rect.min.x, rect.max.y),
+    ]
 }

@@ -16,17 +16,24 @@ mod world;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                fit_canvas_to_parent: true,
-                prevent_default_event_handling: false,
-                recognize_pinch_gesture: false,
-                recognize_rotation_gesture: false,
-                recognize_doubletap_gesture: false,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        fit_canvas_to_parent: true,
+                        prevent_default_event_handling: false,
+                        recognize_pinch_gesture: false,
+                        recognize_rotation_gesture: false,
+                        recognize_doubletap_gesture: false,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::log::LogPlugin {
+                    filter: "portfolio=debug".to_string(),
+                    ..default()
+                }),
+        )
         .insert_resource(Time::<Fixed>::from_hz(24.))
         .add_plugins(avian3d::PhysicsPlugins::default())
         .add_plugins(player::PlayerPlugin)
@@ -41,7 +48,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         DistanceFog {
-            falloff: FogFalloff::from_visibility(
+            falloff: FogFalloff::from_visibility_squared(
                 1024.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
             ),
             ..default()
@@ -61,7 +68,7 @@ fn setup_world(mut commands: Commands) {
         ..default()
     });
     commands.spawn((
-        Transform::from_xyz(0.0, 8.0, 0.0),
+        Transform::from_xyz(0.0, 16.0, 0.0),
         avian3d::prelude::Collider::cylinder(4.0, 1.0),
         avian3d::prelude::RigidBody::Static,
     ));

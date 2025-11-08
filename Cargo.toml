@@ -29,23 +29,24 @@ bevy = { version = "0.17", default-features = false, features = [
 bevy-tnua = "0.26.0"
 bevy-tnua-avian3d = "0.7.1"
 bytemuck = "1.24.0"
-getrandom = { version = "*", features = ["wasm_js"] }
+once_cell = "1.21.3"
 tokio = { version = "1.48.0", features = ["sync"] }
 
-# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
+[dev-dependencies]
+wasm-bindgen-test = "0.3.55"
+
+[target.wasm32.build-dependencies]
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
+
 [profile.release]
 lto = true
 codegen-units = 1
-# Optimize with size in mind (also try "z", sometimes it is better).
-# Slightly slows compile times, great improvements to file size and runtime performance.
 opt-level = "s"
-# Strip all information from the binary to slightly reduce file size.
 strip = "symbols"
 
-# Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1
+overflow-checks = true
 
-# Enable a large amount of optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
 opt-level = 3
