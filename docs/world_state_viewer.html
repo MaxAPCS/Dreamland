@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World State Visualizer</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        canvas {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #444;
+        }
+
+        button:active {
+            background-color: #555;
+        }
+
+        .info-panels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .panel {
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #6495ed;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .success {
+            background-color: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4caf50;
+        }
+
+        .error {
+            background-color: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+        }
+
+        .player-info {
+            background-color: rgba(244, 67, 54, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-left: 3px solid #f44336;
+        }
+
+        .chunk-info {
+            background-color: rgba(100, 149, 237, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-left: 3px solid #6495ed;
+        }
+
+        .frame-counter {
+            background-color: rgba(100, 149, 237, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-left: 3px solid #4caf50;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 20px;
+        }
+
+        .speed-control label {
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .speed-control input {
+            width: 120px;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 12px;
+            max-width: 150px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="controls">
+            <button id="playPause">Play</button>
+            <button id="prevFrame">Previous Frame</button>
+            <button id="nextFrame">Next Frame</button>
+            <button id="reset">Reset</button>
+            <button id="clearLogs">Clear Logs</button>
+            <div class="speed-control">
+                <label for="speedSlider">Speed:</label>
+                <input type="range" id="speedSlider" min="1" max="20" value="10">
+                <span id="speedValue">10 FPS</span>
+            </div>
+        </div>
+
+        <div style="position: relative; display: inline-block;">
+            <canvas id="gameCanvas" width="640" height="640"></canvas>
+            <div id="legend" class="legend" style="display: none;">
+                <strong>Chunk Types</strong>
+            </div>
+        </div>
+
+        <div class="info-panels">
+            <div class="panel">
+                <h3>Game Logs Input</h3>
+                <textarea id="logInput" placeholder="Paste your game logs here...">
+ INFO app: src/world.rs:128 [( -8,   0) 8x8 L, (  0,   0) 8x8 L, ( -8,  -8) 8x8 L, (  0,  -2) 2x2 L, (  2,  -2) 2x2 L, (  0,  -4) 2x2 L, (  2,  -3) 1x1 L, (  3,  -3) 1x1 L, (  2,  -4) 1x1 L, (  3,  -4) 1x1 L, (  4,  -4) 4x4 L, (  0,  -6) 2x2 L, (  2,  -6) 2x2 L, (  0,  -8) 2x2 L, (  2,  -8) 2x2 L, (  4,  -8) 4x4 L]
+ INFO app: src/world.rs:129 PLAYR (2.5157673, -3.087513)
+ INFO app: src/world.rs:128 [( -8,   0) 8x8 L, (  0,   0) 8x8 L, ( -8,  -8) 8x8 L, (  0,  -2) 2x2 L, (  2,  -2) 2x2 L, (  0,  -4) 2x2 L, (  2,  -3) 1x1 L, (  3,  -3) 1x1 L, (  2,  -4) 1x1 L, (  3,  -4) 1x1 L, (  4,  -4) 4x4 L, (  0,  -6) 2x2 L, (  2,  -6) 2x2 L, (  0,  -8) 2x2 L, (  2,  -8) 2x2 L, (  4,  -8) 4x4 L]
+ INFO app: src/world.rs:129 PLAYR (2.774184, -3.4660327)
+ INFO app: src/world.rs:128 [( -8,   0) 8x8 L, (  0,   0) 8x8 L, ( -8,  -8) 8x8 L, (  0,  -2) 2x2 L, (  2,  -2) 2x2 L, (  0,  -4) 2x2 L, (  2,  -3) 1x1 L, (  3,  -3) 1x1 L, (  2,  -4) 1x1 L, (  3,  -4) 1x1 L, (  4,  -4) 4x4 L, (  0,  -6) 2x2 L, (  2,  -6) 2x2 L, (  0,  -8) 2x2 L, (  2,  -8) 2x2 L, (  4,  -8) 4x4 L]
+ INFO app: src/world.rs:129 PLAYR (2.989234, -3.789012)
+                </textarea>
+                <div id="parseStatus" class="status"></div>
+            </div>
+
+            <div class="panel">
+                <h3>Current Frame Data</h3>
+                <div id="currentFrameData">
+                    <div class="player-info">
+                        <strong>Player:</strong> <span id="playerPos">Not loaded</span>
+                    </div>
+                    <div class="chunk-info">
+                        <strong>Chunks:</strong> <span id="chunkCount">0</span> loaded
+                    </div>
+                    <div class="frame-counter">
+                        <strong>Frame:</strong> <span id="frameNumber">0</span> / <span id="totalFrames">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state data
+        let gameFrames = [];
+        let currentFrame = 0;
+        let isPlaying = false;
+        let animationId = null;
+        let lastFrameTime = 0;
+        let animationSpeed = 10; // FPS
+
+        // Color management for chunk types
+        const colorPool = [
+            '#6495ed', // Cornflower blue
+            '#4caf50', // Green
+            '#ff9800', // Orange
+            '#e91e63', // Pink
+            '#9c27b0', // Purple
+            '#00bcd4', // Cyan
+            '#ffeb3b', // Yellow
+            '#795548', // Brown
+            '#607d8b', // Blue gray
+            '#8bc34a'  // Light green
+        ];
+        let typeColors = {};
+
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI elements
+        const playPauseBtn = document.getElementById('playPause');
+        const prevFrameBtn = document.getElementById('prevFrame');
+        const nextFrameBtn = document.getElementById('nextFrame');
+        const resetBtn = document.getElementById('reset');
+        const clearLogsBtn = document.getElementById('clearLogs');
+        const frameNumberEl = document.getElementById('frameNumber');
+        const totalFramesEl = document.getElementById('totalFrames');
+        const logInputEl = document.getElementById('logInput');
+        const parseStatusEl = document.getElementById('parseStatus');
+        const playerPosEl = document.getElementById('playerPos');
+        const chunkCountEl = document.getElementById('chunkCount');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const legendEl = document.getElementById('legend');
+
+        // Get or assign color for a chunk type
+        function getColorForType(type) {
+            if (!typeColors[type]) {
+                // Assign a color from the pool, cycling through if we run out
+                const colorIndex = Object.keys(typeColors).length % colorPool.length;
+                typeColors[type] = colorPool[colorIndex];
+            }
+            return typeColors[type];
+        }
+
+        // Update the legend
+        function updateLegend() {
+            // Clear existing legend items
+            while (legendEl.children.length > 1) {
+                legendEl.removeChild(legendEl.lastChild);
+            }
+
+            // Add items for each type
+            Object.entries(typeColors).forEach(([type, color]) => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+
+                const colorBox = document.createElement('div');
+                colorBox.className = 'legend-color';
+                colorBox.style.backgroundColor = color;
+
+                const typeLabel = document.createElement('span');
+                typeLabel.textContent = type;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(typeLabel);
+                legendEl.appendChild(legendItem);
+            });
+
+            // Show legend if we have types
+            legendEl.style.display = Object.keys(typeColors).length > 0 ? 'block' : 'none';
+        }
+
+        // Parse the logs into frames
+        function parseLogs(logText) {
+            // Reset type colors when parsing new logs
+            typeColors = {};
+
+            const lines = logText.trim().split('\n');
+            const frames = [];
+
+            for (let i = 0; i < lines.length; i += 2) {
+                if (i + 1 >= lines.length) break;
+
+                const chunkLine = lines[i];
+                const playerLine = lines[i + 1];
+
+                // Parse chunks
+                const chunkMatch = chunkLine.match(/\[(.*)\]/);
+                if (!chunkMatch) continue;
+
+                const chunkText = chunkMatch[1];
+                const chunkParts = chunkText.split(/(?<=\w), (?=\()/);
+                const chunks = [];
+
+                for (const part of chunkParts) {
+                    const match = part.trim().match(/\(\s*(-?\d+),\s*(-?\d+)\)\s*(\d+)x(\d+)\s*(\w)/);
+                    if (match) {
+                        const type = match[5];
+                        chunks.push({
+                            x: parseInt(match[1]),
+                            y: parseInt(match[2]),
+                            width: parseInt(match[3]),
+                            height: parseInt(match[4]),
+                            type: type
+                        });
+
+                        // Ensure we have a color for this type
+                        getColorForType(type);
+                    }
+                }
+
+                // Parse player position
+                const playerMatch = playerLine.match(/PLAYR\s*\(([^,]+),\s*([^)]+)\)/);
+                if (!playerMatch) continue;
+
+                frames.push({
+                    chunks: chunks,
+                    player: {
+                        x: parseFloat(playerMatch[1]),
+                        y: parseFloat(playerMatch[2])
+                    }
+                });
+            }
+
+            // Update the legend with the types we found
+            updateLegend();
+
+            return frames;
+        }
+
+        // Update visualization with new logs
+        function updateLogs() {
+            const logText = logInputEl.value;
+
+            try {
+                gameFrames = parseLogs(logText);
+
+                if (gameFrames.length > 0) {
+                    parseStatusEl.textContent = `Successfully parsed ${gameFrames.length} frames`;
+                    parseStatusEl.className = 'status success';
+
+                    // Reset to first frame
+                    currentFrame = 0;
+                    isPlaying = false;
+                    playPauseBtn.textContent = 'Play';
+
+                    // Update UI
+                    totalFramesEl.textContent = gameFrames.length;
+                    updateFrameDisplay();
+                    drawFrame(currentFrame);
+                } else {
+                    parseStatusEl.textContent = 'No valid frames found in logs';
+                    parseStatusEl.className = 'status error';
+                    totalFramesEl.textContent = '0';
+                    frameNumberEl.textContent = '0';
+                }
+            } catch (error) {
+                parseStatusEl.textContent = `Error parsing logs: ${error.message}`;
+                parseStatusEl.className = 'status error';
+            }
+        }
+
+        // Draw a frame
+        function drawFrame(frameIndex) {
+            if (frameIndex < 0 || frameIndex >= gameFrames.length) return;
+
+            const frame = gameFrames[frameIndex];
+
+            // Clear canvas
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate scaling and offset to fit content
+            const padding = 20;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+            // Find bounds
+            for (const chunk of frame.chunks) {
+                minX = Math.min(minX, chunk.x);
+                minY = Math.min(minY, chunk.y);
+                maxX = Math.max(maxX, chunk.x + chunk.width);
+                maxY = Math.max(maxY, chunk.y + chunk.height);
+            }
+
+            minX = Math.min(minX, frame.player.x);
+            minY = Math.min(minY, frame.player.y);
+            maxX = Math.max(maxX, frame.player.x);
+            maxY = Math.max(maxY, frame.player.y);
+
+            // Add some padding in world coordinates
+            minX -= 2;
+            minY -= 2;
+            maxX += 2;
+            maxY += 2;
+
+            const scaleX = (canvas.width - 2 * padding) / (maxX - minX);
+            const scaleY = (canvas.height - 2 * padding) / (maxY - minY);
+            const scale = Math.min(scaleX, scaleY);
+
+            // Draw chunks
+            for (const chunk of frame.chunks) {
+                const x = padding + (chunk.x - minX) * scale;
+                const y = canvas.height - padding - (chunk.y - minY) * scale;
+                const width = chunk.width * scale;
+                const height = chunk.height * scale;
+
+                // Get color for this chunk type
+                const color = getColorForType(chunk.type);
+
+                // Fill with semi-transparent color
+                ctx.fillStyle = color + '4D'; // Add transparency (30%)
+                ctx.fillRect(x, y - height, width, height);
+
+                // Stroke
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y - height, width, height);
+            }
+
+            // Draw player
+            const playerX = padding + (frame.player.x - minX) * scale;
+            const playerY = canvas.height - padding - (frame.player.y - minY) * scale;
+
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(playerX, playerY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Update parsed data display
+            playerPosEl.textContent = `(${frame.player.x.toFixed(2)}, ${frame.player.y.toFixed(2)})`;
+            chunkCountEl.textContent = frame.chunks.length;
+        }
+
+        // Animation loop
+        function animate(currentTime) {
+            if (isPlaying && gameFrames.length > 0) {
+                // Calculate time since last frame
+                const deltaTime = currentTime - lastFrameTime;
+                const frameInterval = 1000 / animationSpeed;
+
+                // Only advance frame if enough time has passed
+                if (deltaTime >= frameInterval) {
+                    currentFrame = (currentFrame + 1) % gameFrames.length;
+                    drawFrame(currentFrame);
+                    updateFrameDisplay();
+                    lastFrameTime = currentTime - (deltaTime % frameInterval);
+                }
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Update frame display
+        function updateFrameDisplay() {
+            frameNumberEl.textContent = currentFrame + 1;
+        }
+
+        // Update animation speed
+        function updateAnimationSpeed() {
+            animationSpeed = parseInt(speedSlider.value);
+            speedValue.textContent = `${animationSpeed} FPS`;
+        }
+
+        // Event handlers
+        playPauseBtn.addEventListener('click', () => {
+            if (gameFrames.length === 0) return;
+
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+
+            if (isPlaying) {
+                lastFrameTime = performance.now();
+            }
+        });
+
+        prevFrameBtn.addEventListener('click', () => {
+            if (gameFrames.length === 0) return;
+
+            isPlaying = false;
+            playPauseBtn.textContent = 'Play';
+            currentFrame = (currentFrame - 1 + gameFrames.length) % gameFrames.length;
+            drawFrame(currentFrame);
+            updateFrameDisplay();
+        });
+
+        nextFrameBtn.addEventListener('click', () => {
+            if (gameFrames.length === 0) return;
+
+            isPlaying = false;
+            playPauseBtn.textContent = 'Play';
+            currentFrame = (currentFrame + 1) % gameFrames.length;
+            drawFrame(currentFrame);
+            updateFrameDisplay();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (gameFrames.length === 0) return;
+
+            isPlaying = false;
+            playPauseBtn.textContent = 'Play';
+            currentFrame = 0;
+            drawFrame(currentFrame);
+            updateFrameDisplay();
+        });
+
+        clearLogsBtn.addEventListener('click', () => {
+            logInputEl.value = '';
+            updateLogs();
+        });
+
+        // Update visualization when logs change
+        logInputEl.addEventListener('input', updateLogs);
+
+        // Update animation speed when slider changes
+        speedSlider.addEventListener('input', updateAnimationSpeed);
+
+        // Initialize with default logs
+        updateLogs();
+        updateAnimationSpeed();
+
+        // Start animation loop
+        animate(0);
+    </script>
+</body>
+
+</html>

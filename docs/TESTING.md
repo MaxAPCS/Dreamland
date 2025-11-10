@@ -20,6 +20,6 @@ This pipeline compiles each push, creates an artifact, and deploys it to github 
 It took multiple iterations to get cross-compilation succeeding, due to failiures of external WASM linking steps.
 
 ### Integration Testing
-[Chunk Log Viewer](./chunk_log_viewer.html)
+[Chunk Log Viewer](./chunk_log_viewer.html), [World State Viewer](./world_state_viewer.html)
 <br>
-This tool, built in HTML/CSS/JS with the help of LLMs, provides an intuitive and clarifying view of the actions of world generation. Changing the log level in the code to debug will display the standardized logs of the world, quadtree, and compute frameworks interoperating. This is a crucial tool for debugging and understanding the complexities of dynamic chunk and LOD generation, and has been very useful. It is provided here for future reference.
+These tools, built in HTML/CSS/JS with the help of LLMs, provide an intuitive and clarifying view of the actions of world generation. Formerly, changing the log level in the code to debug would display the standardized logs of the world, quadtree, and compute frameworks interoperating. This was a crucial tool for debugging and understanding the complexities of dynamic chunk and LOD generation, and has been very useful. Changing the log level now displays full world state snapshots, built to be interpreted by the world state viewer. This gives a big-picture view and helped quash a few fine-grained bugs in the system. These are both provided here for future reference.

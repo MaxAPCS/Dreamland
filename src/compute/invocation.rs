@@ -34,9 +34,9 @@ struct FractalNoiseConfig {
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     seed: 0.0,
     octaves: 5,
-    lacunarity: 1.75,
+    lacunarity: 2.,
     gain: 0.5,
-    amplitude: 3.5,
+    amplitude: 1.75,
 };
 
 #[repr(C, packed)]

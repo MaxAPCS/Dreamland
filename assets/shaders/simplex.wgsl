@@ -92,5 +92,5 @@ fn main(
 
     output[
         global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
-    ] = sum * sum;
+    ] = pow(abs(sum), 4.);
 }
