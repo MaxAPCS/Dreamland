@@ -20,13 +20,14 @@ As of now, the project has all of its core features, and I would consider it com
 - Infinite Generation
 
 ### In Progress
-- Profiling, Bugfixing
+- Profiling
 
 ### Planned
 - Procedural Foliage
 - Platform Testing
 - [Analytical Derivative Erosion Hack](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
 - Procedural Flat Clouds
+- Parameterized Noise Settings
 - Terrain Coloring
 - Mobile Device Accelerometer Camera Control
 - Curved World Vertex Shader

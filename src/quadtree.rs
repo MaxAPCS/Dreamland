@@ -1,75 +1,18 @@
 use bevy::math::{IRect, IVec2};
 
-#[derive(PartialEq, Debug)]
-pub enum LocationResult<T> {
-    Found(T),
-    Closest(T),
-    NotFound,
-}
-
-enum Node<T> {
-    Branch([Box<Quad<T>>; 4]),
-    Leaf(T),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum Quadrant {
-    TopLft,
-    TopRht,
-    BotLft,
-    BotRht,
-}
-
-impl Quadrant {
-    fn from_point(rect: &IRect, point: &IVec2) -> Option<Self> {
-        if !rect.contains(*point) {
-            return None;
-        }
-
-        let IVec2 { x: mid_x, y: mid_y } = rect.center();
-        match (point.x < mid_x, point.y < mid_y) {
-            (true, false) => Some(Quadrant::TopLft),
-            (false, false) => Some(Quadrant::TopRht),
-            (true, true) => Some(Quadrant::BotLft),
-            (false, true) => Some(Quadrant::BotRht),
-        }
-    }
-
-    fn sub_rect(self, parent: &IRect) -> IRect {
-        debug_assert!(parent.width() >= 2 && parent.height() >= 2);
-        let IVec2 { x: mid_x, y: mid_y } = parent.center();
-        match self {
-            Quadrant::TopLft => IRect::new(parent.min.x, mid_y, mid_x, parent.max.y),
-            Quadrant::TopRht => IRect::new(mid_x, mid_y, parent.max.x, parent.max.y),
-            Quadrant::BotLft => IRect::new(parent.min.x, parent.min.y, mid_x, mid_y),
-            Quadrant::BotRht => IRect::new(mid_x, parent.min.y, parent.max.x, mid_y),
-        }
-    }
-
-    // MUST MATCH ORDER OF ENUM
-    fn entries() -> [Quadrant; 4] {
-        [
-            Quadrant::TopLft,
-            Quadrant::TopRht,
-            Quadrant::BotLft,
-            Quadrant::BotRht,
-        ]
-    }
-}
-
 pub struct Quad<T> {
-    bounds: IRect,
+    bounds: MIRect,
     node: Node<T>,
 }
 
 impl<T> Quad<T> {
     // find the quad with these bounds
     pub fn matching_bounds(&mut self, bounds: &IRect) -> LocationResult<&mut Quad<T>> {
-        if self.bounds == *bounds {
+        if self.bounds.rect == *bounds {
             return LocationResult::Found(self);
         }
 
-        if !self.contains(bounds) {
+        if !self.bounds.contains_rect(&(*bounds).into()) {
             return LocationResult::NotFound;
         }
 
@@ -97,7 +40,7 @@ impl<T> Quad<T> {
         target_depth: u32,
         current_depth: u32,
     ) -> &mut Quad<T> {
-        debug_assert!(self.bounds.contains(*point));
+        debug_assert!(self.bounds.contains(point));
 
         // if deepest we can go OR already deep enough
         if self.is_leaf() || current_depth >= target_depth {
@@ -131,15 +74,8 @@ impl<T> Quad<T> {
         }
     }
 
-    pub fn get_bounds(&self) -> &IRect {
+    pub fn get_bounds(&self) -> &MIRect {
         &self.bounds
-    }
-
-    pub fn contains(&self, rect: &IRect) -> bool {
-        self.bounds.min.x <= rect.min.x
-            && self.bounds.max.x >= rect.max.x
-            && self.bounds.min.y <= rect.min.y
-            && self.bounds.max.y >= rect.max.y
     }
 
     pub fn for_each<F: FnMut(&Quad<T>)>(&self, callback: &mut F) {
@@ -166,18 +102,17 @@ impl<T> Quad<T> {
 }
 
 impl<T: FromBounds> Quad<T> {
-    pub fn new(bounds: IRect) -> Self {
+    pub fn new(bounds: MIRect) -> Self {
         Self {
-            bounds,
             node: Node::Leaf(T::new(&bounds)),
+            bounds,
         }
     }
 
     fn subdivide(&mut self) {
         debug_assert!(self.is_leaf());
-        self.node = Node::Branch(
-            Quadrant::entries().map(|q| Box::new(Quad::new(q.sub_rect(&self.bounds)))),
-        );
+        self.node =
+            Node::Branch(Quadrant::entries().map(|q| Box::new(Quad::new(self.bounds.sub_rect(q)))));
     }
 
     fn unite(&mut self) {
@@ -211,7 +146,7 @@ impl<T: FromBounds> Quad<T> {
         target_depth: u32,
         current_depth: u32,
     ) -> &Quad<T> {
-        debug_assert!(self.bounds.contains(*point));
+        debug_assert!(self.bounds.contains(point));
 
         if current_depth >= target_depth {
             return self;
@@ -242,13 +177,17 @@ impl<T: FromBounds> Quad<T> {
     }
 }
 
+pub trait FromBounds {
+    fn new(bounds: &MIRect) -> Self;
+}
+
 impl<T: std::fmt::Display> std::fmt::Debug for Quad<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "({:>3}, {:>3}) {}x{} {}",
-            self.bounds.min.x as f32 / 128.,
-            self.bounds.min.y as f32 / 128.,
+            self.bounds.rect.min.x as f32 / 128.,
+            self.bounds.rect.min.y as f32 / 128.,
             self.bounds.width() as f32 / 128.,
             self.bounds.height() as f32 / 128.,
             match &self.node {
@@ -259,8 +198,135 @@ impl<T: std::fmt::Display> std::fmt::Debug for Quad<T> {
     }
 }
 
-pub trait FromBounds {
-    fn new(bounds: &IRect) -> Self;
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MIRect {
+    rect: IRect,
+}
+
+impl MIRect {
+    #[inline]
+    pub fn new(x0: i32, y0: i32, x1: i32, y1: i32) -> Self {
+        Self {
+            rect: IRect::from_corners(IVec2::new(x0, y0), IVec2::new(x1, y1)),
+        }
+    }
+
+    #[inline]
+    pub fn width(&self) -> i32 {
+        self.rect.max.x - self.rect.min.x
+    }
+
+    #[inline]
+    pub fn height(&self) -> i32 {
+        self.rect.max.y - self.rect.min.y
+    }
+
+    #[inline]
+    pub fn center(&self) -> IVec2 {
+        (self.rect.min + self.rect.max) / 2
+    }
+
+    #[inline]
+    pub fn contains(&self, point: &IVec2) -> bool {
+        self.rect.min.x <= point.x
+            && self.rect.max.x > point.x
+            && self.rect.min.y <= point.y
+            && self.rect.max.y > point.y
+    }
+
+    #[inline]
+    pub fn contains_rect(&self, rect: &MIRect) -> bool {
+        self.rect.min.x <= rect.rect.min.x
+            && self.rect.max.x >= rect.rect.max.x
+            && self.rect.min.y <= rect.rect.min.y
+            && self.rect.max.y >= rect.rect.max.y
+    }
+
+    #[inline]
+    pub fn union(&self, other: Self) -> Self {
+        Self {
+            rect: IRect {
+                min: self.rect.min.min(other.rect.min),
+                max: self.rect.max.max(other.rect.max),
+            },
+        }
+    }
+
+    fn sub_rect(&self, quadrant: Quadrant) -> MIRect {
+        debug_assert!(self.width() >= 2 && self.height() >= 2);
+        let IVec2 { x: mid_x, y: mid_y } = self.center();
+        match quadrant {
+            Quadrant::TopLft => MIRect::new(self.rect.min.x, mid_y, mid_x, self.rect.max.y),
+            Quadrant::TopRht => MIRect::new(mid_x, mid_y, self.rect.max.x, self.rect.max.y),
+            Quadrant::BotLft => MIRect::new(self.rect.min.x, self.rect.min.y, mid_x, mid_y),
+            Quadrant::BotRht => MIRect::new(mid_x, self.rect.min.y, self.rect.max.x, mid_y),
+        }
+    }
+}
+
+impl From<IRect> for MIRect {
+    fn from(rect: IRect) -> Self {
+        Self { rect }
+    }
+}
+
+impl Into<IRect> for MIRect {
+    fn into(self) -> IRect {
+        self.rect
+    }
+}
+
+impl std::fmt::Debug for MIRect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.rect.fmt(f)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub enum LocationResult<T> {
+    Found(T),
+    Closest(T),
+    NotFound,
+}
+
+enum Node<T> {
+    Branch([Box<Quad<T>>; 4]),
+    Leaf(T),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Quadrant {
+    TopLft,
+    TopRht,
+    BotLft,
+    BotRht,
+}
+
+impl Quadrant {
+    fn from_point(rect: &MIRect, point: &IVec2) -> Option<Self> {
+        if !rect.contains(point) {
+            return None;
+        }
+
+        let IVec2 { x: mid_x, y: mid_y } = rect.center();
+        match (point.x < mid_x, point.y < mid_y) {
+            (true, false) => Some(Quadrant::TopLft),
+            (false, false) => Some(Quadrant::TopRht),
+            (true, true) => Some(Quadrant::BotLft),
+            (false, true) => Some(Quadrant::BotRht),
+        }
+    }
+
+    // MUST MATCH ORDER OF ENUM
+    fn entries() -> [Quadrant; 4] {
+        [
+            Quadrant::TopLft,
+            Quadrant::TopRht,
+            Quadrant::BotLft,
+            Quadrant::BotRht,
+        ]
+    }
 }
 
 #[cfg(test)]
@@ -270,7 +336,7 @@ mod tests {
 
     #[wasm_bindgen_test(unsupported = test)]
     fn test_quadrant_contains_consistency() {
-        let rect = IRect::new(0, 0, 100, 100);
+        let rect = MIRect::new(0, 0, 100, 100);
         let points = [
             IVec2::new(0, 0),
             IVec2::new(50, 50),
@@ -285,9 +351,9 @@ mod tests {
             let q = Quadrant::from_point(&rect, &point);
             assert!(q.is_some(), "Point {:?} should map to a quadrant", point);
             let q = q.unwrap();
-            let sub_rect = q.sub_rect(&rect);
+            let sub_rect = rect.sub_rect(q);
             assert!(
-                sub_rect.contains(point),
+                sub_rect.contains(&point),
                 "Point {:?} should be contained in sub-rectangle {:?}",
                 point,
                 sub_rect
@@ -296,10 +362,8 @@ mod tests {
 
         for point in points {
             assert!(
-                Quadrant::from_point(&rect, &point)
-                    .unwrap()
-                    .sub_rect(&rect)
-                    .contains(point),
+                rect.sub_rect(Quadrant::from_point(&rect, &point).unwrap())
+                    .contains(&point),
                 "Subrect of {:?} should contain it.",
                 point
             );
@@ -321,21 +385,21 @@ mod tests {
     #[wasm_bindgen_test(unsupported = test)]
     fn test_quad_child_contains() {
         let testbounds = [
-            (IRect::new(0, 0, 100, 100), IVec2::splat(50)),
-            (IRect::new(0, 0, 10, 10), IVec2::new(0, 9)),
-            (IRect::new(-128, -128, 128, 128), IVec2::ZERO),
+            (MIRect::new(0, 0, 100, 100), IVec2::splat(50)),
+            (MIRect::new(0, 0, 10, 10), IVec2::new(0, 9)),
+            (MIRect::new(-128, -128, 128, 128), IVec2::ZERO),
             (
-                IRect::new(-128 - 256, -128 - 256, -128, -128),
+                MIRect::new(-128 - 256, -128 - 256, -128, -128),
                 IVec2::new(-250, -150),
             ),
-            (IRect::new(0, 0, 2, 2), IVec2::new(0, 0)),
-            (IRect::new(0, 0, 2, 2), IVec2::new(0, 1)),
-            (IRect::new(0, 0, 2, 2), IVec2::new(1, 0)),
-            (IRect::new(0, 0, 2, 2), IVec2::new(1, 1)),
-            (IRect::new(100, 100, 200, 200), IVec2::new(100, 100)),
-            (IRect::new(100, 100, 200, 200), IVec2::new(199, 199)),
-            (IRect::new(-100, -100, 0, 0), IVec2::new(-100, -100)),
-            (IRect::new(-100, -100, 0, 0), IVec2::new(-1, -1)),
+            (MIRect::new(0, 0, 2, 2), IVec2::new(0, 0)),
+            (MIRect::new(0, 0, 2, 2), IVec2::new(0, 1)),
+            (MIRect::new(0, 0, 2, 2), IVec2::new(1, 0)),
+            (MIRect::new(0, 0, 2, 2), IVec2::new(1, 1)),
+            (MIRect::new(100, 100, 200, 200), IVec2::new(100, 100)),
+            (MIRect::new(100, 100, 200, 200), IVec2::new(199, 199)),
+            (MIRect::new(-100, -100, 0, 0), IVec2::new(-100, -100)),
+            (MIRect::new(-100, -100, 0, 0), IVec2::new(-1, -1)),
         ];
         for (bounds, point) in testbounds {
             let mut quad = Quad::<Dummy>::new(bounds);
@@ -347,13 +411,22 @@ mod tests {
 
             let quadrant = Quadrant::from_point(&quad.bounds, &point).unwrap();
             assert!(
-                quadrant.sub_rect(&bounds).contains(point),
+                bounds.sub_rect(quadrant).contains(&point),
                 "Quadrant doesn't contain point it was formed from"
             );
-            assert!(
-                children[quadrant as usize].bounds.contains(point),
-                "Quad's child doesn't contain point within quadrant"
-            );
+            for (i, child) in children.iter().enumerate() {
+                if i == quadrant as usize {
+                    assert!(
+                        child.bounds.contains(&point),
+                        "Quad's child doesn't contain point within quadrant"
+                    );
+                } else {
+                    assert!(
+                        !child.bounds.contains(&point),
+                        "Quad's child contains point within other quadrant"
+                    );
+                }
+            }
         }
     }
 
@@ -361,7 +434,7 @@ mod tests {
     struct Dummy(i32);
 
     impl FromBounds for Dummy {
-        fn new(_: &IRect) -> Self {
+        fn new(_: &MIRect) -> Self {
             Self(0)
         }
     }
@@ -376,7 +449,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_quadrant_from_point_within_bounds() {
-        let rect = IRect::new(0, 0, 100, 100);
+        let rect = MIRect::new(0, 0, 100, 100);
 
         // Test each quadrant center
         let test_cases = [
@@ -399,12 +472,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_quadrant_from_point_outside_bounds() {
-        let rect = IRect::new(0, 0, 100, 100);
+        let rect = MIRect::new(0, 0, 100, 100);
         let outside_points = [
             IVec2::new(-1, 50),  // Left
-            IVec2::new(101, 50), // Right
+            IVec2::new(100, 50), // Right
             IVec2::new(50, -1),  // Top
-            IVec2::new(50, 101), // Bottom
+            IVec2::new(50, 100), // Bottom
         ];
 
         for point in outside_points {
@@ -418,7 +491,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_quadrant_from_point_on_boundaries() {
-        let rect = IRect::new(0, 0, 100, 100);
+        let rect = MIRect::new(0, 0, 100, 100);
         let center = rect.center();
 
         // Points exactly on center lines should still map to quadrants
@@ -441,18 +514,18 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_quadrant_sub_rect_correctness() {
-        let parent = IRect::new(0, 0, 100, 100);
+        let parent = MIRect::new(0, 0, 100, 100);
 
         let test_cases = [
-            (Quadrant::TopLft, IRect::new(0, 50, 50, 100)),
-            (Quadrant::TopRht, IRect::new(50, 50, 100, 100)),
-            (Quadrant::BotLft, IRect::new(0, 0, 50, 50)),
-            (Quadrant::BotRht, IRect::new(50, 0, 100, 50)),
+            (Quadrant::TopLft, MIRect::new(0, 50, 50, 100)),
+            (Quadrant::TopRht, MIRect::new(50, 50, 100, 100)),
+            (Quadrant::BotLft, MIRect::new(0, 0, 50, 50)),
+            (Quadrant::BotRht, MIRect::new(50, 0, 100, 50)),
         ];
 
         for (quadrant, expected) in test_cases {
             assert_eq!(
-                quadrant.sub_rect(&parent),
+                parent.sub_rect(quadrant),
                 expected,
                 "Quadrant {:?} should produce correct sub-rect",
                 quadrant
@@ -460,30 +533,21 @@ mod tests {
         }
     }
 
-    #[wasm_bindgen_test]
-    fn test_quadrant_entries_order() {
-        let entries = Quadrant::entries();
-        assert_eq!(entries[0], Quadrant::TopLft);
-        assert_eq!(entries[1], Quadrant::TopRht);
-        assert_eq!(entries[2], Quadrant::BotLft);
-        assert_eq!(entries[3], Quadrant::BotRht);
-    }
-
     // ===== Quad Tree Creation & Basic Properties =====
 
     #[wasm_bindgen_test]
     fn test_quadtree_creation() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let quad = Quad::<Dummy>::new(bounds);
 
         assert!(quad.is_leaf());
         assert_eq!(quad.get_bounds(), &bounds);
-        assert_eq!(quad.get_leaf(), Some(&Dummy(0)));
+        assert_eq!(quad.get_leaf(), Some(&Dummy::new(&bounds)));
     }
 
     #[wasm_bindgen_test]
     fn test_quadtree_leaf_operations() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Test initial state
@@ -502,7 +566,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_set_min_depth_zero() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
         let point = IVec2::new(50, 50);
 
@@ -514,7 +578,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_set_min_depth_multiple_levels() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
         let point = IVec2::new(25, 75); // Top-left quadrant
 
@@ -545,16 +609,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_set_min_depth_point_on_edge() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Test points exactly on quadrant boundaries
         let edge_points = [
-            IVec2::new(50, 50),  // Exact center
-            IVec2::new(0, 50),   // Left edge
-            IVec2::new(50, 0),   // Bottom edge
-            IVec2::new(50, 100), // Top edge
-            IVec2::new(100, 50), // Right edge
+            IVec2::new(50, 50), // Exact center
+            IVec2::new(0, 50),  // Left edge
+            IVec2::new(50, 0),  // Bottom edge
         ];
 
         for point in edge_points {
@@ -572,7 +634,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_set_max_depth_merging() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
         let point = IVec2::new(25, 75);
 
@@ -597,10 +659,10 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_matching_bounds_exact_match() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
-        let result = quad.matching_bounds(&bounds);
+        let result = quad.matching_bounds(&bounds.rect);
         assert!(matches!(result, LocationResult::Found(_)));
 
         if let LocationResult::Found(found) = result {
@@ -610,14 +672,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_matching_bounds_partial_overlap() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
         let key = 42;
         quad.set_leaf(Dummy(key));
 
         // Bounds that cross multiple quadrants
-        let crossing_bounds = IRect::new(25, 25, 75, 75);
-        let result = quad.matching_bounds(&crossing_bounds);
+        let crossing_bounds = MIRect::new(25, 25, 75, 75);
+        let result = quad.matching_bounds(&crossing_bounds.rect);
         let LocationResult::Closest(result) = result else {
             panic!("Expected Closest, got {:?}", result);
         };
@@ -626,15 +688,15 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_matching_bounds_same_quadrant() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Subdivide first
         quad.subdivide();
 
         // Test bounds that fit entirely in one quadrant
-        let top_left_bounds = IRect::new(0, 50, 50, 100);
-        let result = quad.matching_bounds(&top_left_bounds);
+        let top_left_bounds = MIRect::new(0, 50, 50, 100);
+        let result = quad.matching_bounds(&top_left_bounds.rect);
         assert!(matches!(result, LocationResult::Found(_)));
 
         if let LocationResult::Found(found) = result {
@@ -644,12 +706,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_matching_bounds_non_existent() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Bounds completely outside
-        let outside_bounds = IRect::new(200, 200, 300, 300);
-        let result = quad.matching_bounds(&outside_bounds);
+        let outside_bounds = MIRect::new(200, 200, 300, 300);
+        let result = quad.matching_bounds(&outside_bounds.rect);
         assert!(matches!(result, LocationResult::NotFound));
     }
 
@@ -657,11 +719,11 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_for_each_on_leaf() {
-        let bounds = IRect::new(0, 0, 100, 100);
-        let mut quad = Quad::<Dummy>::new(bounds);
+        let bounds = MIRect::new(0, 0, 100, 100);
+        let quad = Quad::<Dummy>::new(bounds);
         let mut count = 0;
 
-        quad.for_each_mut(&mut |_| count += 1);
+        quad.for_each(&mut |_| count += 1);
 
         assert_eq!(count, 1);
     }
@@ -671,7 +733,7 @@ mod tests {
     #[wasm_bindgen_test]
     #[should_panic(expected = "assertion failed")]
     fn test_single_pixel_bounds() {
-        let bounds = IRect::new(0, 0, 1, 1);
+        let bounds = MIRect::new(0, 0, 1, 1);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Should be able to handle single pixel
@@ -686,7 +748,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_point_at_corners() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         let corners = [
@@ -707,7 +769,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_deep_nesting() {
-        let bounds = IRect::new(0, 0, 128, 128); // Power of 2 for clean division
+        let bounds = MIRect::new(0, 0, 128, 128); // Power of 2 for clean division
         let mut quad = Quad::<Dummy>::new(bounds);
         let point = IVec2::new(1, 127); // Near top-left corner
 
@@ -728,7 +790,7 @@ mod tests {
     #[wasm_bindgen_test]
     #[should_panic(expected = "assertion failed")]
     fn test_set_leaf_on_branch_panics() {
-        let bounds = IRect::new(0, 0, 100, 100);
+        let bounds = MIRect::new(0, 0, 100, 100);
         let mut quad = Quad::<Dummy>::new(bounds);
 
         // Convert to branch
@@ -736,5 +798,28 @@ mod tests {
 
         // This should panic because we're a branch, not a leaf
         quad.set_leaf(Dummy(42));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_quad_parent_child_contains() {
+        let bounds = MIRect::new(0, 0, 101, 99);
+        let mut quad = Quad::<Dummy>::new(bounds);
+        quad.subdivide();
+
+        for x in bounds.rect.min.x - 1..bounds.rect.max.x + 1 {
+            for y in bounds.rect.min.y - 1..bounds.rect.max.y + 1 {
+                let pt = &IVec2::new(x, y);
+
+                let Node::Branch(children) = &quad.node else {
+                    panic!();
+                };
+                let mut i = 0;
+                for child in children {
+                    i += child.bounds.contains(pt) as i32;
+                }
+
+                assert_eq!(i, quad.bounds.contains(pt) as i32);
+            }
+        }
     }
 }

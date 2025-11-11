@@ -1,5 +1,3 @@
-use std::f32::consts::{FRAC_PI_4, FRAC_PI_8};
-
 use bevy::{
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
@@ -31,7 +29,7 @@ fn main() {
                 })
                 .set(bevy::log::LogPlugin {
                     level: bevy::log::Level::WARN,
-                    // filter: "portfolio=debug".to_string(),
+                    filter: "bevy_pbr=error".to_string(), // portfolio=debug,
                     ..default()
                 }),
         )
@@ -75,14 +73,14 @@ fn setup_world(mut commands: Commands) {
     ));
 }
 
+static MUL: std::sync::LazyLock<f32> = std::sync::LazyLock::new(|| 3f32.powf(1.5) / 4.);
 fn animate_light_direction(
     time: Res<Time>,
     mut light: Single<&mut Transform, With<DirectionalLight>>,
 ) {
-    light.rotation = Quat::from_euler(
-        EulerRot::ZYX,
-        FRAC_PI_4,
-        0.0,
-        time.elapsed_secs() * FRAC_PI_8 * 0.25,
+    let x = time.elapsed_secs() / 4.;
+    light.rotation = Quat::from_axis_angle(
+        Vec3::new(0., 0.3, 1.).normalize(),
+        x.cos().powi(4) - 0.5 + x * *MUL,
     );
 }

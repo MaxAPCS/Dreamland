@@ -1,5 +1,5 @@
 use avian3d::prelude::*;
-use bevy::math::ops::{cos, sin};
+use bevy::math::ops::sin_cos;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions};
 use bevy_tnua::TnuaUserControlsSystems;
@@ -59,7 +59,8 @@ impl PlayerRotation {
     fn to_dir3_flat(&self) -> Dir3 {
         // Yaw 0 = [0, 0, -1]
         // Yaw 90 = [-1, 0, 0]
-        Dir3::from_xyz_unchecked(-sin(self.yaw), 0.0, -cos(self.yaw))
+        let (s, c) = sin_cos(self.yaw);
+        Dir3::from_xyz_unchecked(-s, 0.0, -c)
     }
 
     fn to_quat(&self) -> Quat {
