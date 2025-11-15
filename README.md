@@ -3,6 +3,7 @@
 
 Dreamland is an infinite world of procedural terrain that continuously generates around the user, rendering in high quality close by and tapering off when far away. Fractal Brownian Motion is applied to simplex noise to sample heights in parallel on the GPU, which are passed back to the CPU and turned into triangle strip meshes with smooth shading. These are dynamically generated and destroyed at variable detail levels by an efficient lazy quadtree algorithm, permitting nearly unlimited world size.
 This project is designed firstly to be a personal foray into the subject, and perhaps alternatively as a flexible visualization of terrain generators for game developers, 3D artists, and others. This experience is designed to be accessible on the web, enabling greater accessibility.
+Dreamland works on Firefox (with flags), does not work on Chromium-based browsers, and is untested on Safari.
 
 ## Roadmap
 
@@ -18,18 +19,18 @@ As of now, the project has all of its core features, and I would consider it com
 - Quadtree LOD Framework
 - Dynamic LOD Centering
 - Infinite Generation
-- [Analytical Derivative Erosion Hack](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
+- [Analytical Derivative Erosion Trick](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
 
 ### In Progress
-- Profiling
 
 ### Planned
 - Procedural Foliage
+- Profiling
 - Procedural Flat Clouds
+- Mobile Device Accelerometer Camera Control
 - Parameterized Noise Settings
 - Terrain Coloring
-- Mobile Device Accelerometer Camera Control
 - Curved World Vertex Shader
 
 ## Acknowledgements
-Noise Algorithms: [Noisy Bevy](https://github.com/johanhelsing/noisy_bevy)
+Noise Algorithm: [psrdnoise](https://github.com/stegu/psrdnoise)

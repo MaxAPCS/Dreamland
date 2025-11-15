@@ -25,6 +25,7 @@ impl Plugin for ComputePlugin {
         app.add_message::<GenerationMessage>()
             .insert_resource(InvocationQueue(itx))
             .insert_resource(GenerationDequeue(grx))
+            .init_resource::<generation::TerrainMaterial>()
             .add_systems(
                 FixedPreUpdate,
                 generation::generation_worker.in_set(GenerationWork),

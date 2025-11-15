@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use bevy::prelude::*;
-use once_cell::sync::Lazy;
 use tokio::sync::mpsc;
 
 use crate::{compute, player::Player, quadtree::*};
@@ -34,12 +33,13 @@ enum Chunk {
 }
 
 const WORLD_SIZE: u32 = 8192;
-const MAX_DEPTH: usize = (WORLD_SIZE / 128).ilog2() as usize;
-const LEVELS: [u32; MAX_DEPTH] = {
+const MIN_SIZE: u32 = 128;
+const MAX_DEPTH: usize = (WORLD_SIZE / MIN_SIZE).ilog2() as usize;
+pub const LEVELS: [u32; MAX_DEPTH] = {
     let mut depth = 0;
     let mut out = [0u32; MAX_DEPTH];
     loop {
-        out[depth] = 128u32 * (1u32 << (MAX_DEPTH - 1 - depth));
+        out[depth] = MIN_SIZE * (1u32 << (MAX_DEPTH - 1 - depth));
         depth += 1;
         if depth == MAX_DEPTH {
             break;
@@ -66,26 +66,22 @@ impl Default for Chunks {
 }
 fn chunk_initialize(
     mut chunks: ResMut<Chunks>,
-    player_query: Query<&Transform, (With<Player>, Changed<Transform>)>,
+    player_query: Single<&Transform, (With<Player>, Changed<Transform>)>,
     mut prev_pos: ResMut<PrevPlayerPos>,
 ) {
-    let Ok(Transform {
-        translation: player_trans,
-        ..
-    }) = player_query.single()
-    else {
-        return;
-    };
-
+    let player_trans = player_query.translation;
     let player_pos = player_trans.xz().as_ivec2();
+    let player_pos_prev;
 
-    if let Some(player_pos_prev) = prev_pos.0 {
-        if player_pos == player_pos_prev || player_pos.manhattan_distance(player_pos_prev) <= 16 {
+    if let Some(prev) = prev_pos.0 {
+        if player_pos.manhattan_distance(prev) <= MIN_SIZE / 8 {
             return;
         }
+        player_pos_prev = prev;
+    } else {
+        player_pos_prev = *prev_pos.0.insert(player_pos);
     }
 
-    let player_pos_prev = *prev_pos.0.get_or_insert(player_pos);
     for (depth, &size) in LEVELS.iter().enumerate() {
         let size = IVec2::splat(size as i32);
         let rect = IRect::from_center_size(player_pos, size);
@@ -182,10 +178,10 @@ fn chunk_link(mut world: ResMut<Chunks>, mut messager: MessageReader<compute::Ge
 }
 
 // Destruction
-static DESTROY_QUEUE: Lazy<(
+static DESTROY_QUEUE: std::sync::LazyLock<(
     mpsc::UnboundedSender<Entity>,
     Arc<Mutex<mpsc::UnboundedReceiver<Entity>>>,
-)> = Lazy::new(|| {
+)> = std::sync::LazyLock::new(|| {
     let (s, r) = mpsc::unbounded_channel();
     (s, Arc::new(Mutex::new(r)))
 });

@@ -1,6 +1,7 @@
 use bevy::{
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
+    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::{Atmosphere, AtmosphereSettings},
     post_process::bloom::Bloom,
     prelude::*,
@@ -57,11 +58,21 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn setup_world(mut commands: Commands) {
-    commands.spawn(DirectionalLight {
-        illuminance: light_consts::lux::DIRECT_SUNLIGHT,
-        shadows_enabled: true,
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::DIRECT_SUNLIGHT,
+            shadows_enabled: true,
+            shadow_depth_bias: 0.6,
+            ..default()
+        },
+        CascadeShadowConfigBuilder {
+            maximum_distance: world::LEVELS[2] as f32,
+            first_cascade_far_bound: world::LEVELS[0] as f32,
+            ..default()
+        }
+        .build(),
+    ));
+    commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
     commands.spawn((
         Transform::from_xyz(0.0, 16.0, 0.0),
         avian3d::prelude::Collider::cylinder(4.0, 1.0),

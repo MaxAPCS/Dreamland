@@ -1,0 +1,14 @@
+name: Run wasm-bindgen-test Tests
+on: [push]
+
+env: 
+  CARGO_TERM_COLOR: always
+  
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/setup-env.yml
+      - name: Run Tests
+        run: cargo --config target.wasm32-unknown-unknown.runner=\"wasm-bindgen-test-runner\" test

@@ -6,10 +6,22 @@ use crate::compute::{
 };
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{RenderAssetUsages, io::embedded::GetAssetServer},
+    light::NotShadowCaster,
     mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     prelude::*,
 };
+
+#[derive(Resource, Clone)]
+pub(crate) struct TerrainMaterial(Handle<StandardMaterial>);
+impl FromWorld for TerrainMaterial {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.get_asset_server().add(StandardMaterial {
+            base_color: Color::linear_rgb(0., 154. / 255., 23. / 255.),
+            ..Default::default()
+        }))
+    }
+}
 
 #[derive(Message)]
 pub struct GenerationMessage {
@@ -20,6 +32,7 @@ pub struct GenerationMessage {
 pub(super) fn generation_worker(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    terrain_material: Res<TerrainMaterial>,
     global_compute_store: Res<GlobalComputeStoreRef>,
     mut gen_dequeue: ResMut<GenerationDequeue>,
     mut messager: MessageWriter<GenerationMessage>,
@@ -37,8 +50,7 @@ pub(super) fn generation_worker(
         let id = {
             // Load Data from Buffer
             let view = staging.get_mapped_range(..);
-            let heightmap: &[PointAndNormal] =
-                bytemuck::try_cast_slice(&view).expect("Buffer Interpretation Failed");
+            let heightmap: &[PointAndNormal] = bytemuck::cast_slice(&view);
 
             if chunk.width() == SAMPLES[0] as i32 && chunk.height() == SAMPLES[2] as i32 {
                 // Highest Detail - Generate Physics
@@ -49,10 +61,7 @@ pub(super) fn generation_worker(
                         RigidBody::Static,
                         Collider::trimesh_from_mesh(&mesh).unwrap(),
                         Mesh3d(asset_server.add(mesh)),
-                        MeshMaterial3d(asset_server.add(StandardMaterial {
-                            base_color: Color::linear_rgb(0., 1., 0.),
-                            ..Default::default()
-                        })),
+                        MeshMaterial3d(terrain_material.0.clone()),
                         Transform::from_translation(Vec3 {
                             x: chunk.min.x as f32,
                             y: 0.,
@@ -66,11 +75,9 @@ pub(super) fn generation_worker(
 
                 commands
                     .spawn((
+                        NotShadowCaster,
                         Mesh3d(asset_server.add(mesh)),
-                        MeshMaterial3d(asset_server.add(StandardMaterial {
-                            base_color: Color::linear_rgb(0., 1., 0.),
-                            ..Default::default()
-                        })),
+                        MeshMaterial3d(terrain_material.0.clone()),
                         Transform::from_translation(Vec3 {
                             x: chunk.min.x as f32,
                             y: 0.,
