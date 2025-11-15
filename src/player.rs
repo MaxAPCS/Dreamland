@@ -116,19 +116,20 @@ fn update_controls(
     }
 
     let forward = my_playerrot.to_dir3_flat();
+    let forward_vec = forward.as_vec3().to_vec3a();
 
-    let mut direction = Vec3::ZERO;
+    let mut direction = Vec3A::ZERO;
     if keyboard.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
-        direction += forward.as_vec3();
+        direction += forward_vec;
     }
     if keyboard.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]) {
-        direction -= forward.as_vec3();
+        direction -= forward_vec;
     }
     if keyboard.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
-        direction -= forward.cross(Vec3::Y);
+        direction -= forward_vec.cross(Vec3A::Y);
     }
     if keyboard.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
-        direction += forward.cross(Vec3::Y);
+        direction += forward_vec.cross(Vec3A::Y);
     }
     direction = direction.normalize_or_zero();
     if keyboard.any_pressed([KeyCode::ShiftLeft]) {
@@ -137,7 +138,7 @@ fn update_controls(
 
     controller.basis(TnuaBuiltinWalk {
         desired_forward: Some(forward),
-        desired_velocity: direction * 10.0,
+        desired_velocity: (direction * 10.0).to_vec3(),
         // The `float_height` must be greater (even if by little) from the distance between the
         // character's center and the lowest point of its collider.
         float_height: 1.5,

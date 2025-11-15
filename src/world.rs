@@ -51,19 +51,17 @@ const LEVELS: [u32; MAX_DEPTH] = {
 // Initialization
 impl FromBounds for Chunk {
     // -(initialize)-> Pending
-    fn new(bounds: &MIRect) -> Self {
+    fn new(bounds: &IRect) -> Self {
         if bounds.width() >= 1024 as i32 {
             Chunk::Empty
         } else {
-            Chunk::PreGen(bounds.clone().into())
+            Chunk::PreGen(bounds.clone())
         }
     }
 }
 impl Default for Chunks {
     fn default() -> Self {
-        Self(Quad::new(
-            IRect::from_center_size(IVec2::ZERO, IVec2::splat(WORLD_SIZE as i32)).into(),
-        ))
+        Self(Quad::new(IVec2::splat(WORLD_SIZE as i32)))
     }
 }
 fn chunk_initialize(
@@ -96,7 +94,7 @@ fn chunk_initialize(
         let mut qualityzone = None;
         for corner in corners(&rect) {
             // If corner exceeds world bounds
-            if !chunks.0.get_bounds().contains(&corner) {
+            if !chunks.0.contains(&corner) {
                 continue;
             }
             let bounds = chunks
@@ -112,10 +110,10 @@ fn chunk_initialize(
         let qualityzone = qualityzone.unwrap();
         for corner in corners(&prevrect) {
             // If corner exceeds world bounds
-            if !chunks.0.get_bounds().contains(&corner) {
+            if !chunks.0.contains(&corner) {
                 continue;
             }
-            if !qualityzone.contains(&corner) {
+            if !qualityzone.contains(corner) {
                 chunks.0.set_max_depth(&corner, depth as u32);
             }
         }

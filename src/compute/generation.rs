@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 
 use crate::compute::{
     ComputeInvocation, GenerationDequeue, GlobalComputeStoreRef, SAMPLES,
-    invocation::FractalNoiseBounds,
+    invocation::{FractalNoiseBounds, PointAndNormal},
 };
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
@@ -37,7 +37,8 @@ pub(super) fn generation_worker(
         let id = {
             // Load Data from Buffer
             let view = staging.get_mapped_range(..);
-            let heightmap = bytemuck::cast_slice(&view);
+            let heightmap: &[PointAndNormal] =
+                bytemuck::try_cast_slice(&view).expect("Buffer Interpretation Failed");
 
             if chunk.width() == SAMPLES[0] as i32 && chunk.height() == SAMPLES[2] as i32 {
                 // Highest Detail - Generate Physics
@@ -90,7 +91,7 @@ pub(super) fn generation_worker(
     }
 }
 
-fn generate_mesh(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh {
+fn generate_mesh(chunk: &FractalNoiseBounds, heightmap: &[PointAndNormal]) -> Mesh {
     let mut vertice = [[0f32; 3]; (SAMPLES[0] * SAMPLES[1] * SAMPLES[2]) as usize];
     let mut normals = [[0f32; 3]; (SAMPLES[0] * SAMPLES[1] * SAMPLES[2]) as usize];
     let mut indices = Vec::<u32>::with_capacity((2 * SAMPLES[0] * (SAMPLES[2] - 1)) as usize);
@@ -106,7 +107,8 @@ fn generate_mesh(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh {
             debug_assert_eq!(i, (cx + cz * SAMPLES[0]) as usize);
 
             // Sample Vertex
-            vertice[i] = [x, heightmap[i], z];
+            vertice[i] = [x, heightmap[i].point, z];
+            normals[i] = heightmap[i].normal;
 
             // Generate Indices
             if cz != SAMPLES[2] - 1 {
@@ -122,29 +124,6 @@ fn generate_mesh(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh {
                     indices.push(temp);
                     //( cz    * SIDE + (SIDE - (cx+1))) as u32); // opposite side - top right
                 }
-            }
-
-            // Generate Normals
-            {
-                let width = SAMPLES[0] as usize;
-
-                let xdiff = if cx == 0 {
-                    (heightmap[i] - heightmap[i + 1]) * 2.
-                } else if cx == SAMPLES[0] - 1 {
-                    (heightmap[i - 1] - heightmap[i]) * 2.
-                } else {
-                    heightmap[i - 1] - heightmap[i + 1]
-                };
-
-                let zdiff = if cz == 0 {
-                    (heightmap[i] - heightmap[i + width]) * 2.
-                } else if cz == SAMPLES[2] - 1 {
-                    (heightmap[i - width] - heightmap[i]) * 2.
-                } else {
-                    heightmap[i - width] - heightmap[i + width]
-                };
-
-                normals[i] = Vec3::new(xdiff, 1., zdiff).normalize_or_zero().to_array();
             }
 
             i += 1;
@@ -174,7 +153,7 @@ fn generate_mesh(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn generate_mesh_trilist(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh {
+fn generate_mesh_trilist(chunk: &FractalNoiseBounds, heightmap: &[PointAndNormal]) -> Mesh {
     let mut vertice = [[0f32; 3]; (SAMPLES[0] * SAMPLES[1] * SAMPLES[2]) as usize];
     let mut normals = [[0f32; 3]; (SAMPLES[0] * SAMPLES[1] * SAMPLES[2]) as usize];
     let mut indices = Vec::<u32>::with_capacity((6 * (SAMPLES[0] - 1) * (SAMPLES[2] - 1)) as usize);
@@ -190,7 +169,8 @@ fn generate_mesh_trilist(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh 
             debug_assert_eq!(i, (cx + cz * SAMPLES[0]) as usize);
 
             // Sample Vertex
-            vertice[i] = [x, heightmap[i], z];
+            vertice[i] = [x, heightmap[i].point, z];
+            normals[i] = heightmap[i].normal;
 
             // Generate Indices
             if cx != SAMPLES[0] - 1 && cz != SAMPLES[2] - 1 {
@@ -205,29 +185,6 @@ fn generate_mesh_trilist(chunk: &FractalNoiseBounds, heightmap: &[f32]) -> Mesh 
                 indices.push(i as u32 + SAMPLES[0]);
                 indices.push(i as u32 + SAMPLES[0] + 1);
                 indices.push(i as u32 + 1);
-            }
-
-            // Generate Normals
-            {
-                let width = SAMPLES[0] as usize;
-
-                let xdiff = if cx == 0 {
-                    (heightmap[i] - heightmap[i + 1]) * 2.
-                } else if cx == SAMPLES[0] - 1 {
-                    (heightmap[i - 1] - heightmap[i]) * 2.
-                } else {
-                    heightmap[i - 1] - heightmap[i + 1]
-                };
-
-                let zdiff = if cz == 0 {
-                    (heightmap[i] - heightmap[i + width]) * 2.
-                } else if cz == SAMPLES[2] - 1 {
-                    (heightmap[i - width] - heightmap[i]) * 2.
-                } else {
-                    heightmap[i - width] - heightmap[i + width]
-                };
-
-                normals[i] = Vec3::new(xdiff, 1., zdiff).normalize_or_zero().to_array();
             }
 
             i += 1;

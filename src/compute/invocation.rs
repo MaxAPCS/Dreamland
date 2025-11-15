@@ -28,7 +28,8 @@ struct FractalNoiseConfig {
     octaves: u32,
     lacunarity: f32,
     gain: f32,
-    amplitude: f32,
+    scale: f32,
+    erosion: f32,
 }
 
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
@@ -36,7 +37,8 @@ const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     octaves: 5,
     lacunarity: 2.,
     gain: 0.5,
-    amplitude: 1.75,
+    scale: 24.,
+    erosion: 0.2,
 };
 
 #[repr(C, packed)]
@@ -57,6 +59,13 @@ impl From<&IRect> for FractalNoiseBounds {
             zstep: chunk.height() as f32 / (SAMPLES[2] - 1) as f32,
         }
     }
+}
+
+#[repr(C, packed)]
+#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+pub(super) struct PointAndNormal {
+    pub(super) point: f32,
+    pub(super) normal: [f32; 3],
 }
 
 // Bevy Systems
@@ -102,7 +111,7 @@ impl FromWorld for GlobalComputeStore {
                         ty: BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
                         min_binding_size: BufferSize::new(std::mem::size_of::<
-                            [f32; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
+                            [PointAndNormal; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
                         >() as _),
                     },
                 },
@@ -111,17 +120,15 @@ impl FromWorld for GlobalComputeStore {
 
         // Create Pipeline
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: None,
             layout: vec![bind_group_layout],
-            shader_defs: vec![],
             shader: asset_server.load("shaders/simplex.wgsl"),
-            entry_point: None,
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         });
 
         // Create Reusable Storage Buffers
-        let bufsize = std::mem::size_of::<[f32; (SAMPLES[0] * SAMPLES[2]) as usize]>() as _;
+        let bufsize = std::mem::size_of::<
+            [PointAndNormal; (SAMPLES[0] * SAMPLES[1] * SAMPLES[2]) as usize],
+        >() as _;
         Self {
             pipeline: pipeline,
             buffers: Arc::new(std::array::from_fn(|i| ComputeInvocation {

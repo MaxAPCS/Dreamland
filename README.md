@@ -18,14 +18,13 @@ As of now, the project has all of its core features, and I would consider it com
 - Quadtree LOD Framework
 - Dynamic LOD Centering
 - Infinite Generation
+- [Analytical Derivative Erosion Hack](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
 
 ### In Progress
 - Profiling
 
 ### Planned
 - Procedural Foliage
-- Platform Testing
-- [Analytical Derivative Erosion Hack](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
 - Procedural Flat Clouds
 - Parameterized Noise Settings
 - Terrain Coloring

@@ -7,7 +7,6 @@ use bevy::{
 };
 
 mod compute;
-mod cpu;
 mod player;
 mod quadtree;
 mod world;
@@ -28,8 +27,7 @@ fn main() {
                     ..default()
                 })
                 .set(bevy::log::LogPlugin {
-                    level: bevy::log::Level::WARN,
-                    filter: "bevy_pbr=error".to_string(), // portfolio=debug,
+                    filter: "warn,bevy_pbr=error".to_string(), // portfolio=debug,
                     ..default()
                 }),
         )
@@ -47,9 +45,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         DistanceFog {
-            falloff: FogFalloff::from_visibility_squared(
-                1024.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
-            ),
+            falloff: FogFalloff::from_visibility_squared(1024.0),
             ..default()
         },
         Atmosphere { ..default() },
@@ -80,7 +76,7 @@ fn animate_light_direction(
 ) {
     let x = time.elapsed_secs() / 4.;
     light.rotation = Quat::from_axis_angle(
-        Vec3::new(0., 0.3, 1.).normalize(),
+        Vec3::new(0., 0.2, 1.).normalize(),
         x.cos().powi(4) - 0.5 + x * *MUL,
     );
 }
