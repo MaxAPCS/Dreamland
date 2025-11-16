@@ -180,10 +180,6 @@ pub(super) fn invocation_worker(
             break;
         }
     }
-
-    if cfg!(debug_assertions) && !inv_dequeue.1.is_empty() {
-        bevy::log::warn!("Invocation Queue Overflow! {} queued.", inv_dequeue.1.len());
-    }
 }
 
 fn invoke_pipeline(

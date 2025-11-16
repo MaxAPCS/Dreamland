@@ -5,6 +5,7 @@ use bevy::{
     pbr::{Atmosphere, AtmosphereSettings},
     post_process::bloom::Bloom,
     prelude::*,
+    render::experimental::occlusion_culling::OcclusionCulling,
 };
 
 mod compute;
@@ -54,6 +55,7 @@ fn setup_camera(mut commands: Commands) {
         Exposure::SUNLIGHT,
         Bloom::NATURAL,
         Tonemapping::Reinhard,
+        OcclusionCulling,
     ));
 }
 
