@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: actions/checkout@v5
-      - name: ./.github/workflows/setup-env
+      - name: ./.github/setup-env
       - name: Build Project
         run: cargo build --verbose --release --target wasm32-unknown-unknown
       - name: Bind Project
