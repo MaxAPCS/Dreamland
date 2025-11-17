@@ -6,6 +6,7 @@ runs:
       uses: Swatinem/rust-cache@v2.8.1
     - name: Setup Rust
       run: rustup update stable && rustup default stable && rustup target add wasm32-unknown-unknown
+      shell: bash
     - name: Setup wasm-bindgen
       uses: jetli/wasm-bindgen-action@v0.2.0
       with:
