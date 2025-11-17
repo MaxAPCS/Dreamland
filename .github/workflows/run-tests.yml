@@ -8,9 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup
-        uses: ./.github/workflows/setup-env.yml
+      - uses: actions/checkout@v5
+      - uses: ./.github/workflows/setup-env.yml
       - name: Run Tests
         run: cargo --config target.wasm32-unknown-unknown.runner=\"wasm-bindgen-test-runner\" test
