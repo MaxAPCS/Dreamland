@@ -26,10 +26,10 @@ struct Chunks(Quad<Chunk>);
 
 #[derive(Debug)]
 enum Chunk {
-    Empty,         // will not be created
-    PreGen(IRect), // pre-generation
-    PreLnk,        // pre-linking
-    Real(Entity),  // linked, in the world
+    Empty,        // will not be created
+    PreGen,       // pre-generation
+    PreLnk,       // pre-linking
+    Real(Entity), // linked, in the world
 }
 
 const WORLD_SIZE: u32 = 8192;
@@ -55,7 +55,7 @@ impl FromBounds for Chunk {
         if bounds.width() >= 1024 as i32 {
             Chunk::Empty
         } else {
-            Chunk::PreGen(bounds.clone())
+            Chunk::PreGen
         }
     }
 }
@@ -130,8 +130,8 @@ fn chunk_initialize(
 impl Quad<Chunk> {
     /// Pending -(generate)-> Exists
     fn generate(&mut self, inv_queue: &mut ResMut<compute::InvocationQueue>) {
-        if let Some(Chunk::PreGen(bounds)) = self.get_leaf() {
-            inv_queue.add(bounds.to_owned());
+        if let Some(Chunk::PreGen) = self.get_leaf() {
+            inv_queue.add(self.get_bounds().to_owned());
             self.set_leaf(Chunk::PreLnk);
         }
     }
@@ -221,7 +221,7 @@ impl std::fmt::Display for Chunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Chunk::Empty => "E",
-            Chunk::PreGen(_) => "G",
+            Chunk::PreGen => "G",
             Chunk::PreLnk => "L",
             Chunk::Real(_) => "R",
         })

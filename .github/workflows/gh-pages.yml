@@ -27,15 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/setup-env
+      - name: Setup Environment
+        uses: ./.github/setup-env
       - name: Build Project
-        run: cargo build --verbose --release --target wasm32-unknown-unknown
-      - name: Bind Project
-        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/portfolio.wasm && cp serve/* _site/ && cp -r assets/ _site/assets/
+        run: cargo build --release --target wasm32-unknown-unknown
+      - name: Bind WASM
+        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/portfolio.wasm
+      - name: Optimize WASM
+        uses: JohannesDeml/binaryen-wasm-opt@v1
+        with:
+          file: _site/portfolio_bg.wasm
+          options: -Oz -all --fast-math
+      - name: Copy Static Assets
+        run: cp serve/* _site/ && cp -r assets/ _site/assets/
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
-        with:
-          retention-days: 3
 
   # Deployment job
   deploy:

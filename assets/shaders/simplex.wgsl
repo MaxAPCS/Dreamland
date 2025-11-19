@@ -166,5 +166,5 @@ fn main(
 
     output[
         global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
-    ] = PointAndNormal(sum * config.scale, array(norm.x, norm.y, norm.z));
+    ] = PointAndNormal(sum * config.scale, array(norm.x, norm.z, norm.y)); // transform coordinate systems
 }
