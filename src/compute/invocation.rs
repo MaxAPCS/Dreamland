@@ -28,17 +28,19 @@ struct FractalNoiseConfig {
     octaves: u32,
     lacunarity: f32,
     gain: f32,
-    scale: f32,
     erosion: f32,
+    scale: f32,
+    offset: f32,
 }
 
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     seed: 0.0,
     octaves: 5,
-    lacunarity: 2.,
+    lacunarity: 2.5,
     gain: 0.5,
+    erosion: 0.8,
     scale: 24.,
-    erosion: 0.2,
+    offset: 0.0,
 };
 
 #[repr(C, packed)]

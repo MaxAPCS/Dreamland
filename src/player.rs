@@ -1,8 +1,9 @@
 use avian3d::prelude::*;
-use bevy::math::ops::sin_cos;
-use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, CursorOptions};
-use bevy_tnua::TnuaUserControlsSystems;
+use bevy::{
+    math::ops::sin_cos,
+    prelude::*,
+    window::{CursorGrabMode, CursorOptions},
+};
 use bevy_tnua::prelude::*;
 use bevy_tnua_avian3d::{TnuaAvian3dPlugin, TnuaAvian3dSensorShape};
 use std::f32::consts::FRAC_PI_2;
@@ -18,7 +19,10 @@ impl Plugin for PlayerPlugin {
         .init_resource::<PlayerRotation>()
         .init_resource::<PastMouseLocation>()
         .add_systems(Startup, spawn_player)
-        .add_systems(FixedUpdate, update_controls.in_set(TnuaUserControlsSystems))
+        .add_systems(
+            FixedUpdate,
+            update_controls.in_set(bevy_tnua::TnuaUserControlsSystems),
+        )
         .add_systems(
             PostUpdate,
             update_camera

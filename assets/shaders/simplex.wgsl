@@ -113,21 +113,22 @@ const WORKGROUPZ = 8u;
 const WORKGROUP_SIZE = WORKGROUPX * WORKGROUPY * WORKGROUPZ;
 
 struct FractalNoiseConfig {
-    seed: f32,
-    octaves: u32,
-    lacunarity: f32,
-    gain: f32,
-    scale: f32,
-		erosion: f32
+	seed: f32,
+	octaves: u32,
+	lacunarity: f32,
+	gain: f32,
+	erosion: f32,
+	scale: f32,
+	offset: f32
 }
 
 struct FractalNoiseBounds {
-    x: f32, // Minimum X Coordinate
-    z: f32, // Minimum Z Coordinate
-    xstep: f32, // X Increment Per main()
-    zstep: f32  // Z Increment per main()
-    // Maximum X Coordinate = x + xstep * num_workgroups.x * workgroup_size.x
-    //                      = x + xstep * samples.x
+	x: f32, // Minimum X Coordinate
+	z: f32, // Minimum Z Coordinate
+	xstep: f32, // X Increment Per main()
+	zstep: f32  // Z Increment per main()
+	// Maximum X Coordinate = x + xstep * num_workgroups.x * workgroup_size.x
+	//                      = x + xstep * samples.x
 }
 
 struct PointAndNormal {
@@ -155,7 +156,7 @@ fn main(
     var gradient = vec2<f32>();
 
     for (var i = 0u; i < config.octaves; i++) {
-        var noise = srdnoise2(pos * frequency, config.seed) * amplitude / (1. + config.erosion * dot(gradient, gradient));
+        let noise = srdnoise2(pos * frequency, config.seed) * amplitude / (1. + config.erosion * dot(gradient, gradient));
         gradient += noise.yz;
         sum += noise.x;
         frequency *= config.lacunarity;
@@ -166,5 +167,5 @@ fn main(
 
     output[
         global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
-    ] = PointAndNormal(sum * config.scale, array(norm.x, norm.z, norm.y)); // transform coordinate systems
+    ] = PointAndNormal(sum * config.scale + config.offset, array(norm.x, norm.z, norm.y)); // transform coordinate systems
 }

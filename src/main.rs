@@ -9,6 +9,7 @@ use bevy::{
 };
 
 mod compute;
+mod ischromium;
 mod player;
 mod quadtree;
 mod world;

@@ -71,7 +71,11 @@ pub(super) fn generation_worker(
                     .id()
             } else {
                 // Lower Detail - No Physics, No Shadow
-                let mesh = generate_mesh(&FractalNoiseBounds::from(&chunk), heightmap, false);
+                let mesh = generate_mesh(
+                    &FractalNoiseBounds::from(&chunk),
+                    heightmap,
+                    *crate::ischromium::ISCHROMIUM, // use trilist if chromium, use tristrip if not - it's a chromium bug
+                );
 
                 commands
                     .spawn((
