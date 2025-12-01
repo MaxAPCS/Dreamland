@@ -21,30 +21,30 @@ use crate::compute::{
 const WORKGROUP: [u32; 3] = [8, 1, 8];
 
 // WGSL Objects
-#[repr(C, packed)]
-#[derive(Clone, Copy, bytemuck::NoUninit)]
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::NoUninit, ShaderType)]
 struct FractalNoiseConfig {
-    seed: f32,
-    octaves: u32,
-    lacunarity: f32,
-    gain: f32,
-    erosion: f32,
-    scale: f32,
-    offset: f32,
+    seed: f32,       // (,)
+    octaves: u32,    // [1,)
+    lacunarity: f32, // (1,)
+    gain: f32,       // (0,1)
+    erosion: f32,    // [0,) lower = more fine detail
+    scale: f32,      // (0,) lower = shorter features
+    offset: f32,     // (,)
 }
 
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     seed: 0.0,
-    octaves: 5,
-    lacunarity: 2.5,
-    gain: 0.5,
-    erosion: 0.8,
+    octaves: 6,
+    lacunarity: 1.7,
+    gain: 0.7,
+    erosion: 0.4,
     scale: 24.,
     offset: 0.0,
 };
 
-#[repr(C, packed)]
-#[derive(Clone, Copy, bytemuck::NoUninit)]
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::NoUninit, ShaderType)]
 pub(super) struct FractalNoiseBounds {
     pub(super) x: f32,
     pub(super) z: f32,
@@ -63,8 +63,8 @@ impl From<&IRect> for FractalNoiseBounds {
     }
 }
 
-#[repr(C, packed)]
-#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod, ShaderType)]
 pub(super) struct PointAndNormal {
     pub(super) point: f32,
     pub(super) normal: [f32; 3],
@@ -79,45 +79,17 @@ impl FromWorld for GlobalComputeStore {
 
         // Create Pipeline Bind Group Layout
         let bind_group_layout = render_device.create_bind_group_layout(
-            "Simplex Bind Group Layout",
-            &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    count: None,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            std::mem::size_of::<FractalNoiseConfig>() as _,
-                        ),
-                    },
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    count: None,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(
-                            std::mem::size_of::<FractalNoiseBounds>() as _,
-                        ),
-                    },
-                },
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    count: None,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: BufferSize::new(std::mem::size_of::<
-                            [PointAndNormal; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
-                        >() as _),
-                    },
-                },
-            ],
+            None,
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    binding_types::uniform_buffer::<FractalNoiseConfig>(false),
+                    binding_types::uniform_buffer::<FractalNoiseBounds>(false),
+                    binding_types::storage_buffer::<
+                        [PointAndNormal; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
+                    >(false),
+                ),
+            ),
         );
 
         // Create Pipeline

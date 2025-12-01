@@ -163,7 +163,7 @@ fn main(
         amplitude *= config.gain;
     }
 
-		let norm = normalize(vec3(-gradient.xy, 1) * config.scale);
+		let norm = normalize(vec3(-gradient.xy * config.scale, 1));
 
     output[
         global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)

@@ -8,8 +8,8 @@ use bevy::{
     render::experimental::occlusion_culling::OcclusionCulling,
 };
 
+mod bindings;
 mod compute;
-mod ischromium;
 mod player;
 mod quadtree;
 mod world;

@@ -6,4 +6,4 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     fn isChromium() -> bool;
 }
-pub static ISCHROMIUM: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| isChromium());
+pub static ISCHROMIUM: std::sync::LazyLock<bool> = std::sync::LazyLock::new(isChromium);

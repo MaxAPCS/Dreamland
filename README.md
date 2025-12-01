@@ -22,14 +22,14 @@ As of now, the project has all of its core features, and I would consider it com
 - [Analytical Derivative Erosion Trick](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
 
 ### In Progress
+- Profiling
+- Parameterized Noise Settings (Biomes)
 
 ### Planned
-- Procedural Foliage
-- Profiling
-- Procedural Flat Clouds
 - Mobile Device Accelerometer Camera Control
-- Parameterized Noise Settings
-- Terrain Coloring
+- Procedural Foliage
+- Procedural Flat Cloud Fragment Shader
+- Terrain Coloring Fragment Shader
 - Curved World Vertex Shader
 
 ## Acknowledgements

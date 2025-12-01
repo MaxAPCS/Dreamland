@@ -74,7 +74,7 @@ pub(super) fn generation_worker(
                 let mesh = generate_mesh(
                     &FractalNoiseBounds::from(&chunk),
                     heightmap,
-                    *crate::ischromium::ISCHROMIUM, // use trilist if chromium, use tristrip if not - it's a chromium bug
+                    *crate::bindings::ISCHROMIUM, // use trilist if chromium, use tristrip if not - it's a chromium bug
                 );
 
                 commands
