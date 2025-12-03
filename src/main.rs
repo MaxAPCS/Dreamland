@@ -77,7 +77,7 @@ fn setup_world(mut commands: Commands) {
     ));
     commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
     commands.spawn((
-        Transform::from_xyz(0.0, 16.0, 0.0),
+        Transform::from_xyz(0.0, 250.0, 0.0),
         avian3d::prelude::Collider::cylinder(4.0, 1.0),
         avian3d::prelude::RigidBody::Static,
     ));

@@ -30,17 +30,17 @@ struct FractalNoiseConfig {
     gain: f32,       // (0,1)
     erosion: f32,    // [0,) lower = more fine detail
     scale: f32,      // (0,) lower = shorter features
-    offset: f32,     // (,)
+    macroscale: f32, // (,)
 }
 
 const CONFIG: FractalNoiseConfig = FractalNoiseConfig {
     seed: 0.0,
     octaves: 6,
-    lacunarity: 1.7,
-    gain: 0.7,
-    erosion: 0.4,
+    lacunarity: 1.8,
+    gain: 0.5,
+    erosion: 0.01 / 24., // pre-divide scale.
     scale: 24.,
-    offset: 0.0,
+    macroscale: 128.,
 };
 
 #[repr(C)]

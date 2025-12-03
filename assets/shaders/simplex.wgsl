@@ -119,7 +119,7 @@ struct FractalNoiseConfig {
 	gain: f32,
 	erosion: f32,
 	scale: f32,
-	offset: f32
+	macroscale: f32
 }
 
 struct FractalNoiseBounds {
@@ -145,27 +145,45 @@ struct PointAndNormal {
 /// Fractional brownian motion (fbm) based on seeded 2d simplex noise
 @compute @workgroup_size(WORKGROUPX,WORKGROUPY,WORKGROUPZ)
 fn main(
-    @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>
+	@builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+	@builtin(num_workgroups) num_workgroups: vec3<u32>
 ) {
-    let pos = vec2(bounds.x + bounds.xstep * f32(global_invocation_id.x), bounds.z + bounds.zstep * f32(global_invocation_id.z)) / 96.;
+	let pos = vec2(bounds.x + bounds.xstep * f32(global_invocation_id.x), bounds.z + bounds.zstep * f32(global_invocation_id.z)) / 96.;
 
-    var sum = 0.;
-    var amplitude = 1.;
-    var frequency = 1.;
-    var gradient = vec2<f32>();
+	var gradient = vec2<f32>();
+	var gradient_unscaled = vec2<f32>();
+	var sum = 0.;
+	var amplitude = 1.;
+	var frequency = 1.;
+	
+	{
+		let temp = srdnoise2(pos / 64., config.seed);
+		let noisex = 1. / (1. + 256. * pow(temp.x, 8.));
+		let noise = vec3(
+			noisex,
+			(-32. * temp.x * pow(temp.x, 6.) * noisex * noisex) * temp.yz
+		) * config.macroscale;
+		gradient_unscaled += noise.yz; // this is actually scaled - because continental noise should be very significant
+		gradient += noise.yz;
+		sum += noise.x;
 
-    for (var i = 0u; i < config.octaves; i++) {
-        let noise = srdnoise2(pos * frequency, config.seed) * amplitude / (1. + config.erosion * dot(gradient, gradient));
-        gradient += noise.yz;
-        sum += noise.x;
-        frequency *= config.lacunarity;
-        amplitude *= config.gain;
-    }
+		// (512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 32.5)/(1 (512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 33))
+		let ampl = 512 * pow(temp.x, 4.) - 1024 * pow(temp.x, 3.) + 768 * temp.x * temp.x - 256 * temp.x + 32.5;
+		amplitude = ampl / (ampl + 0.5);
+	}
 
-		let norm = normalize(vec3(-gradient.xy * config.scale, 1));
+	for (var i = 0u; i < config.octaves; i++) {
+		let noise = srdnoise2(pos * frequency, config.seed) * amplitude
+			* config.scale / (1. + config.erosion * dot(gradient_unscaled, gradient_unscaled));
+		gradient_unscaled += noise.yz;
+		gradient += noise.yz * frequency;
+		sum += noise.x;
+		frequency *= config.lacunarity;
+		amplitude *= config.gain;
+	}
 
-    output[
-        global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
-    ] = PointAndNormal(sum * config.scale + config.offset, array(norm.x, norm.z, norm.y)); // transform coordinate systems
+	let norm = normalize(vec3(-gradient.xy, 1.));
+	output[
+		global_invocation_id.x + global_invocation_id.z * (num_workgroups.x * WORKGROUPX)
+	] = PointAndNormal(sum, array(norm.x, norm.z, norm.y)); // transform coordinate systems
 }
