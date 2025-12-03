@@ -11,21 +11,18 @@ As of now, the project has all of its core features, and I would consider it com
 
 ### Complete
 - CPU Noise Generation
-- Mesh Construction
-- Physics Engine Integration
-- Character Controller
+- Physics Engine & Character Controller
 - Procedural Atmosphere
 - GPU Compute Noise Generation
-- Quadtree LOD Framework
-- Dynamic LOD Centering
-- Infinite Generation
-- [Analytical Derivative Erosion Trick](https://www.youtube.com/watch?v=gsJHzBTPG0Y)
+- Quadtree Framework & Dynamic LODs
+- [Analytical Derivative Erosion Trick](https://youtu.be/gsJHzBTPG0Y)
+- [Macroscopic / Continental Noise](https://youtu.be/CSa5O6knuwI?t=784)
 
 ### In Progress
-- Profiling
-- Parameterized Noise Settings (Biomes)
+- Biomes / Parameterized Noise
 
 ### Planned
+- Truly Infinite Generation
 - Mobile Device Accelerometer Camera Control
 - Procedural Foliage
 - Procedural Flat Cloud Fragment Shader
@@ -33,4 +30,7 @@ As of now, the project has all of its core features, and I would consider it com
 - Curved World Vertex Shader
 
 ## Acknowledgements
-Noise Algorithm: [psrdnoise](https://github.com/stegu/psrdnoise)
+- Noise Algorithm: [psrdnoise](https://github.com/stegu/psrdnoise)
+- Game Engine: [bevy](https://bevy.org/)
+- Physics Engine: [avian](https://github.com/avianphysics/avian)
+- Character Controller: [tnua](https://github.com/idanarye/bevy-tnua)
