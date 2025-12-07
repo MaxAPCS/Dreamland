@@ -167,7 +167,7 @@ fn main(
 		gradient += noise.yz;
 		sum += noise.x;
 
-		// (512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 32.5)/(1 (512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 33))
+		// (512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 32.5)/(512 x^4 - 1024 x^3 + 768 x^2 - 256 x + 33)
 		let ampl = 512 * pow(temp.x, 4.) - 1024 * pow(temp.x, 3.) + 768 * temp.x * temp.x - 256 * temp.x + 32.5;
 		amplitude = ampl / (ampl + 0.5);
 	}

@@ -26,7 +26,7 @@ impl Plugin for PlayerPlugin {
         .add_systems(
             PostUpdate,
             update_camera
-                .after(avian3d::prelude::PhysicsSystems::Writeback)
+                .after(PhysicsSystems::Writeback)
                 .before(TransformSystems::Propagate),
         );
     }
@@ -75,12 +75,17 @@ impl PlayerRotation {
 fn spawn_player(mut commands: Commands) {
     commands.spawn((
         Player,
-        Transform::from_xyz(0.0, 256.0, 0.0),
+        Transform::from_xyz(0.0, 160.0, 0.0),
         RigidBody::Dynamic,
         Collider::capsule(0.5, 1.0),
         TnuaController::default(),
         // A sensor shape is not strictly necessary, but without it we'll get weird results.
         TnuaAvian3dSensorShape(Collider::cylinder(0.49, 0.0)),
+    ));
+    commands.spawn((
+        Transform::from_xyz(0.0, 155.0, 0.0),
+        Collider::cylinder(4.0, 1.0),
+        RigidBody::Static,
     ));
 }
 

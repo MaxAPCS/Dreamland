@@ -24,7 +24,6 @@ struct PrevPlayerPos(Option<IVec2>);
 #[derive(Resource)]
 struct Chunks(Quad<Chunk>);
 
-#[derive(Debug)]
 enum Chunk {
     Empty,        // will not be created
     PreGen,       // pre-generation
@@ -52,7 +51,7 @@ pub const LEVELS: [u32; MAX_DEPTH] = {
 impl FromBounds for Chunk {
     // -(initialize)-> Pending
     fn new(bounds: &IRect) -> Self {
-        if bounds.width() >= 1024 as i32 {
+        if bounds.width() >= 2048 as i32 {
             Chunk::Empty
         } else {
             Chunk::PreGen
@@ -115,7 +114,8 @@ fn chunk_initialize(
         }
     }
 
-    if cfg!(debug_assertions) {
+    #[cfg(debug_assertions)]
+    {
         bevy::log::debug!("{:?}", *chunks);
         bevy::log::debug!(
             "PLAYR ({}, {})",
@@ -148,8 +148,7 @@ impl Quad<Chunk> {
     fn link(&mut self, entity: Entity) {
         debug_assert!(
             matches!(self.get_leaf().expect("Node Should Be Leaf"), Chunk::PreLnk),
-            "Node State Exception: Expected [Exists], Found [{:?}]",
-            self.get_leaf().unwrap()
+            "Node State Exception: Expected [Exists]"
         );
         self.set_leaf(Chunk::Real(entity));
     }
@@ -208,22 +207,39 @@ fn corners(rect: &IRect) -> [IVec2; 4] {
         IVec2::new(rect.min.x, rect.max.y),
     ]
 }
-impl std::fmt::Debug for Chunks {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut deb = f.debug_list();
-        self.0.for_each(&mut |leaf| {
-            deb.entry(leaf);
-        });
-        deb.finish()
+
+#[cfg(debug_assertions)]
+mod debug {
+    use super::*;
+
+    impl std::fmt::Debug for Chunks {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut deb = f.debug_list();
+            self.0.for_each(&mut |leaf| {
+                deb.entry(leaf);
+            });
+            deb.finish()
+        }
     }
-}
-impl std::fmt::Display for Chunk {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Chunk::Empty => "E",
-            Chunk::PreGen => "G",
-            Chunk::PreLnk => "L",
-            Chunk::Real(_) => "R",
-        })
+    impl std::fmt::Debug for Quad<Chunk> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let b = self.get_bounds();
+            let detail = MIN_SIZE as f32;
+            write!(
+                f,
+                "({},{}) {}x{} {}",
+                b.min.x as f32 / detail,
+                b.min.y as f32 / detail,
+                b.width() as f32 / detail,
+                b.height() as f32 / detail,
+                match self.get_leaf() {
+                    None => "B",
+                    Some(Chunk::Empty) => "E",
+                    Some(Chunk::PreGen) => "G",
+                    Some(Chunk::PreLnk) => "L",
+                    Some(Chunk::Real(_)) => "R",
+                }
+            )
+        }
     }
 }

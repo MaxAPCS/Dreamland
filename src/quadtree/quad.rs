@@ -5,13 +5,11 @@ use crate::quadtree::{
     util::{MIRect, Quadrant},
 };
 
-#[derive(Debug)]
 pub struct Quad<T> {
     bounds: MIRect,
     node: Node<T>,
 }
 
-#[derive(Debug)]
 pub(super) enum Node<T> {
     Branch([Box<Quad<T>>; 4]),
     Leaf(T),
@@ -418,7 +416,7 @@ mod tests {
             ..
         }) = result
         else {
-            panic!("Expected Closest, got {:?}", result);
+            panic!("Expected Closest");
         };
         assert_eq!(k.0, key);
     }

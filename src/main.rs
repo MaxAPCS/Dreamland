@@ -51,8 +51,16 @@ fn setup_camera(mut commands: Commands) {
             falloff: FogFalloff::from_visibility_squared(1024.0),
             ..default()
         },
-        Atmosphere { ..default() },
-        AtmosphereSettings { ..default() },
+        Atmosphere {
+            bottom_radius: 128000.,
+            top_radius: 256000.,
+            ground_albedo: Vec3::new(0., 120. / 255., 23. / 255.) / 2. + Vec3::splat(0.3),
+            ..default()
+        },
+        AtmosphereSettings {
+            scene_units_to_m: 48.,
+            ..default()
+        },
         Exposure::SUNLIGHT,
         Bloom::NATURAL,
         Tonemapping::Reinhard,
@@ -76,21 +84,29 @@ fn setup_world(mut commands: Commands) {
         .build(),
     ));
     commands.insert_resource(DirectionalLightShadowMap { size: 1024 });
-    commands.spawn((
-        Transform::from_xyz(0.0, 250.0, 0.0),
-        avian3d::prelude::Collider::cylinder(4.0, 1.0),
-        avian3d::prelude::RigidBody::Static,
-    ));
 }
 
-static MUL: std::sync::LazyLock<f32> = std::sync::LazyLock::new(|| 3f32.powf(1.5) / 4.);
 fn animate_light_direction(
     time: Res<Time>,
     mut light: Single<&mut Transform, With<DirectionalLight>>,
 ) {
-    let x = time.elapsed_secs() / 4.;
-    light.rotation = Quat::from_axis_angle(
-        Vec3::new(0., 0.2, 1.).normalize(),
-        x.cos().powi(4) - 0.5 + x * *MUL,
+    const DAY_LENGTH: f32 = 64.;
+
+    // 24-hour cycle - 0 midnight, 0.5 dawn, 1 noon
+    let t = (time.elapsed_secs() % DAY_LENGTH) / DAY_LENGTH;
+    let time_of_day = 2.75 * t - 4.25 * t * t + 2.5 * t.powi(3);
+    let sun_angle = time_of_day * 2.0 * std::f32::consts::PI;
+
+    // Calculate sun position (simplified circular path)
+    let sun_elevation = (sun_angle - std::f32::consts::PI).sin();
+    let sun_azimuth = sun_angle.cos();
+
+    // For DirectionalLight, we point the light's negative Z axis toward the sun
+    // So we need to rotate the light to face the opposite direction (from sun to earth)
+    light.rotation = Quat::from_euler(
+        EulerRot::XYZ,
+        -sun_elevation, // tilt down for negative elevation
+        sun_azimuth,    // rotate around Y axis
+        0.0,
     );
 }
