@@ -30,7 +30,7 @@ bevy-tnua-avian3d = "0.7.1"
 bytemuck = "1.24.0"
 log = { version = "0.4.29", features = ["release_max_level_off"] }
 tokio = { version = "1.48.0", features = ["sync"] }
-wasm-bindgen = "0.2.105"
+wasm-bindgen = "0.2.106"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.55"
