@@ -13,10 +13,6 @@ Mouse: Camera Direction
 
 To bind the camera, click on the window once it's loaded, then press escape once. Pressing escape again will free your cursor.
 
-## Building & Deploying
-To build, ensure `wasm-bindgen-cli` v0.2.106 and `wasm-opt` are installed with `cargo install`, then run `./build.sh`.
-To deploy, simply serve the `serve/` directory (e.g. with `python -m http.server`)
-
 ## Roadmap
 
 As of now, the project has all of its core features, and I would consider it complete. Work will continue to add polish wherever possible.
@@ -39,10 +35,5 @@ As of now, the project has all of its core features, and I would consider it com
 - Terrain Coloring Fragment Shader
 - Curved World Vertex Shader
 
-## Acknowledgements
-- Noise Algorithm: [psrdnoise](https://github.com/stegu/psrdnoise)
-- Continental Noise: ["Minecraft terrain generation in a nutshell"](https://youtu.be/CSa5O6knuwI?t=784)
-- Erosion Trick: ["Better Mountain Generators That Aren't Perlin Noise or Erosion"](https://youtu.be/gsJHzBTPG0Y)
-- Game Engine: [Bevy](https://bevy.org/)
-- Physics Engine: [Avian](https://github.com/avianphysics/avian)
-- Character Controller: [tnua](https://github.com/idanarye/bevy-tnua)
+## Wiki Page
+https://github.com/ucsb-cmptgcs1l-f25/max-dreamland/wiki
