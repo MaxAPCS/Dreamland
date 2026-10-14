@@ -7,15 +7,14 @@ Dreamland works on Firefox (with flags), Chromium-based browsers, and is unteste
 
 ## Usage
 W/A/S/D: Movement
-Shift: Sprint
-Space: Jump
+C: Sprint
+Shift: Down
+Space: Up
 Mouse: Camera Direction
-
-To bind the camera, click on the window once it's loaded, then press escape once. Pressing escape again will free your cursor.
 
 ## Roadmap
 
-As of now, the project has all of its core features, and I would consider it complete. Work will continue to add polish wherever possible.
+As of now, the project has all of its core features, and I would consider it complete.
 
 ### Complete
 - CPU Noise Generation
@@ -36,4 +35,4 @@ As of now, the project has all of its core features, and I would consider it com
 - Curved World Vertex Shader
 
 ## Wiki Page
-https://github.com/ucsb-cmptgcs1l-f25/max-dreamland/wiki
+https://github.com/MaxAPCS/Dreamland/wiki
