@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use bevy::prelude::*;
+use bevy::{camera_controller::free_camera::FreeCamera, prelude::*};
 use tokio::sync::mpsc;
 
-use crate::{compute, player::Player, quadtree::*};
+use crate::{compute, quadtree::*};
 pub(crate) struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
@@ -65,7 +65,7 @@ impl Default for Chunks {
 }
 fn chunk_initialize(
     mut chunks: ResMut<Chunks>,
-    player_query: Single<&Transform, (With<Player>, Changed<Transform>)>,
+    player_query: Single<&Transform, (With<FreeCamera>, Changed<Transform>)>,
     mut prev_pos: ResMut<PrevPlayerPos>,
 ) {
     let player_trans = player_query.translation;

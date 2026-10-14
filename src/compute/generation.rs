@@ -4,7 +4,6 @@ use crate::compute::{
     ComputeInvocation, GenerationDequeue, GlobalComputeStoreRef, SAMPLES,
     invocation::{FractalNoiseBounds, PointAndNormal},
 };
-use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
     asset::{RenderAssetUsages, io::embedded::GetAssetServer},
     light::NotShadowCaster,
@@ -49,7 +48,9 @@ pub(super) fn generation_worker(
 
         let id = {
             // Load Data from Buffer
-            let view = staging.get_mapped_range(..);
+            let view = staging
+                .get_mapped_range(..)
+                .expect("generation failed: buffer read fail");
             let heightmap: &[PointAndNormal] = bytemuck::cast_slice(&view);
 
             if chunk.width() == SAMPLES[0] as i32 && chunk.height() == SAMPLES[2] as i32 {
@@ -58,8 +59,6 @@ pub(super) fn generation_worker(
 
                 commands
                     .spawn((
-                        RigidBody::Static,
-                        Collider::trimesh_from_mesh(&mesh).unwrap(),
                         Mesh3d(asset_server.add(mesh)),
                         MeshMaterial3d(terrain_material.0.clone()),
                         Transform::from_translation(Vec3 {

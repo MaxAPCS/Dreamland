@@ -1,16 +1,19 @@
 use bevy::{
     camera::Exposure,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::tonemapping::Tonemapping,
-    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    pbr::{Atmosphere, AtmosphereSettings},
+    light::{
+        Atmosphere, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+        atmosphere::ScatteringMedium,
+    },
+    pbr::AtmosphereSettings,
     post_process::bloom::Bloom,
     prelude::*,
-    render::experimental::occlusion_culling::OcclusionCulling,
+    render::occlusion_culling::OcclusionCulling,
 };
 
 mod bindings;
 mod compute;
-mod player;
 mod quadtree;
 mod world;
 
@@ -30,13 +33,12 @@ fn main() {
                     ..default()
                 })
                 .set(bevy::log::LogPlugin {
-                    filter: "warn,bevy_pbr=error".to_string(), // portfolio=debug,
+                    filter: "warn,bevy_pbr=error".to_string(), // dreamland=debug,
                     ..default()
                 }),
         )
         .insert_resource(Time::<Fixed>::from_hz(24.))
-        .add_plugins(avian3d::PhysicsPlugins::default())
-        .add_plugins(player::PlayerPlugin)
+        .add_plugins(FreeCameraPlugin)
         .add_plugins(compute::ComputePlugin)
         .add_plugins(world::WorldPlugin)
         .add_systems(Startup, (setup_world, setup_camera))
@@ -44,23 +46,37 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
+    let earth_medium = scattering_mediums.add(ScatteringMedium::default());
+    commands.spawn(Atmosphere {
+        inner_radius: 128000.,
+        outer_radius: 256000.,
+        ground_albedo: Vec3::new(0., 120., 23.) * 0.5 / 255. + Vec3::splat(0.3),
+        medium: earth_medium,
+    });
     commands.spawn((
         Camera3d::default(),
+        Transform::from_translation(Vec3 {
+            x: 0.,
+            y: 160.,
+            z: 0.,
+        }),
+        FreeCamera {
+            sensitivity: 0.24,
+            friction: 16.0,
+            run_speed: 64.,
+            mouse_key_cursor_grab: MouseButton::Left,
+            keyboard_key_toggle_cursor_grab: KeyCode::Escape,
+            key_up: KeyCode::Space,
+            key_down: KeyCode::ShiftLeft,
+            key_run: KeyCode::KeyC,
+            ..default()
+        },
         DistanceFog {
             falloff: FogFalloff::from_visibility_squared(1024.0),
             ..default()
         },
-        Atmosphere {
-            bottom_radius: 128000.,
-            top_radius: 256000.,
-            ground_albedo: Vec3::new(0., 120. / 255., 23. / 255.) / 2. + Vec3::splat(0.3),
-            ..default()
-        },
-        AtmosphereSettings {
-            scene_units_to_m: 48.,
-            ..default()
-        },
+        AtmosphereSettings::default(),
         Exposure::SUNLIGHT,
         Bloom::NATURAL,
         Tonemapping::Reinhard,
@@ -72,7 +88,7 @@ fn setup_world(mut commands: Commands) {
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::DIRECT_SUNLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             shadow_depth_bias: 0.6,
             ..default()
         },

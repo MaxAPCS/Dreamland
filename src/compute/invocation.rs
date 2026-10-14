@@ -78,19 +78,19 @@ impl FromWorld for GlobalComputeStore {
         let asset_server = world.resource::<AssetServer>();
 
         // Create Pipeline Bind Group Layout
-        let bind_group_layout = render_device.create_bind_group_layout(
-            None,
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    binding_types::uniform_buffer::<FractalNoiseConfig>(false),
-                    binding_types::uniform_buffer::<FractalNoiseBounds>(false),
-                    binding_types::storage_buffer::<
-                        [PointAndNormal; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
-                    >(false),
-                ),
-            ),
-        );
+        let bind_group_layout = BindGroupLayoutDescriptor {
+            label: "Fractal Noise BGL".into(),
+            entries: vec![
+                binding_types::uniform_buffer::<FractalNoiseConfig>(false)
+                    .build(0, ShaderStages::COMPUTE),
+                binding_types::uniform_buffer::<FractalNoiseBounds>(false)
+                    .build(1, ShaderStages::COMPUTE),
+                binding_types::storage_buffer::<
+                    [PointAndNormal; (WORKGROUP[0] * WORKGROUP[1] * WORKGROUP[2]) as usize],
+                >(false)
+                .build(2, ShaderStages::COMPUTE),
+            ],
+        };
 
         // Create Pipeline
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -226,7 +226,7 @@ fn invoke_pipeline(
                 SAMPLES[2] / WORKGROUP[2],
             );
         }
-        encoder.copy_buffer_to_buffer(out_buf, 0, staging_buf, 0, out_buf.size());
+        encoder.copy_buffer_to_buffer(&out_buf, 0, &staging_buf, 0, out_buf.size());
 
         // Execute
         render_queue.submit(iter::once(encoder.finish()));

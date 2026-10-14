@@ -32,11 +32,11 @@ jobs:
       - name: Build Project
         run: cargo build --release --target wasm32-unknown-unknown
       - name: Bind WASM
-        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/portfolio.wasm
+        run: wasm-bindgen --out-dir _site --target web target/wasm32-unknown-unknown/release/dreamland.wasm
       - name: Optimize WASM
         uses: JohannesDeml/binaryen-wasm-opt@v1
         with:
-          file: _site/portfolio_bg.wasm
+          file: _site/dreamland_bg.wasm
           options: -Oz -all --fast-math
       - name: Copy Static Assets
         run: cp serve/* _site/ && cp -r assets/ _site/assets/
